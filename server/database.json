@@ -1,5 +1,22 @@
 {
-  "sessions": [],
+  "sessions": [
+    {
+      "id": 1782584621555,
+      "name": "Pilates",
+      "coach": "Coach Linda",
+      "date": "2026-06-30",
+      "startTime": "10:30",
+      "endTime": "11:30",
+      "duration": 60,
+      "capacity": 12,
+      "bookings": [
+        {
+          "id": 1782585119995,
+          "name": "Melody Andi"
+        }
+      ]
+    }
+  ],
   "users": [
     {
       "username": "admin",
@@ -116,6 +133,24 @@
       "timestamp": "2026-06-27T15:02:37.630Z",
       "user": "System Admin",
       "action": "Cancelled booking in class: Pilates"
+    },
+    {
+      "id": 1782585114892,
+      "timestamp": "2026-06-27T18:31:54.892Z",
+      "user": "Melody Andi",
+      "action": "Booked class: Pilates"
+    },
+    {
+      "id": 1782585118380,
+      "timestamp": "2026-06-27T18:31:58.380Z",
+      "user": "Melody Andi",
+      "action": "Cancelled booking in class: Pilates"
+    },
+    {
+      "id": 1782585119995,
+      "timestamp": "2026-06-27T18:31:59.995Z",
+      "user": "Melody Andi",
+      "action": "Booked class: Pilates"
     }
   ],
   "instructors": [

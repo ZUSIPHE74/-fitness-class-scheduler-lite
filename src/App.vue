@@ -186,9 +186,28 @@
         </div>
       </div>
 
-      <!-- USER VIEW (User Booking Portal: shows available sessions for booking) -->
+      <!-- USER VIEW (User Booking Portal) -->
       <div v-if="currentView === 'user' || role === 'user'">
-        <div class="sessions-section">
+        
+        <!-- If logged-in user is an Admin: display the Activity History log panel only -->
+        <div v-if="role === 'admin'" class="admin-card history-card-full">
+          <h3>Activity History</h3>
+          
+          <div v-if="history.length === 0" class="no-data">
+            <p>No activity logged yet.</p>
+          </div>
+
+          <div v-else class="history-list">
+            <div v-for="log in sortedHistory" :key="log.id" class="history-item">
+              <span class="history-time">[{{ formatTimestamp(log.timestamp) }}]</span>
+              <span class="history-user">{{ log.user }}</span>
+              <span>{{ log.action }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- If logged-in user is a Trainee/User: display the Available Sessions booking list -->
+        <div v-else class="sessions-section">
           <h2>Available Sessions</h2>
           
           <div v-if="sessions.length === 0" class="no-data">
@@ -213,7 +232,7 @@
                 <p v-else class="spots-full">Class is FULL</p>
               </div>
 
-              <!-- Booking Section (Toggles to "Class Booked" and a "Cancel" button if logged-in user is booked) -->
+              <!-- Booking Section -->
               <div v-if="isUserBooked(session)" class="booked-status-container">
                 <span class="booked-label">Class Booked</span>
                 <button @click="cancelMyBooking(session)" class="btn-cancel-large">
@@ -231,6 +250,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <!-- ADMIN VIEW (Admin role only) -->
