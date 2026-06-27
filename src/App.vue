@@ -5,40 +5,17 @@
     <div class="header">
       <h1>FlexZone Fitness Scheduler</h1>
       <p>Easy class bookings and management</p>
+      
+      <!-- Logged In User Info -->
+      <div v-if="token" class="user-badge">
+        <span>Logged in as: <strong>{{ name }}</strong> ({{ role }})</span>
+        <button @click="logout" class="btn-logout">Logout</button>
+      </div>
     </div>
 
-    <!-- Tab Navigation -->
-    <div class="tabs">
-      <button 
-        @click="currentView = 'user'" 
-        :class="{ active: currentView === 'user' }"
-        class="tab-button"
-      >
-        User Booking Portal
-      </button>
-      <button 
-        @click="currentView = 'admin'" 
-        :class="{ active: currentView === 'admin' }"
-        class="tab-button"
-      >
-        Admin Control Center
-      </button>
-    </div>
-
-    <!-- Stats Panel -->
-    <div class="stats-panel">
-      <div class="stat-box">
-        <h3>Total Classes</h3>
-        <p class="stat-number">{{ totalSessions }}</p>
-      </div>
-      <div class="stat-box">
-        <h3>Total Bookings</h3>
-        <p class="stat-number">{{ totalBookings }}</p>
-      </div>
-      <div class="stat-box">
-        <h3>Utilization</h3>
-        <p class="stat-number">{{ capacityUtilization }}%</p>
-      </div>
+    <!-- Offline Fallback Banner -->
+    <div v-if="offlineMode" class="offline-banner">
+      <span>Offline Mode active (saving to LocalStorage). Start the Node.js server locally to enable database sync.</span>
     </div>
 
     <!-- Alert Notices -->
@@ -47,118 +24,259 @@
       <button @click="alertMessage = null" class="close-alert-btn">Close</button>
     </div>
 
-    <!-- USER VIEW -->
-    <div v-if="currentView === 'user'">
-      <h2>Available Sessions</h2>
+    <!-- ================= AUTHENTICATION VIEW (Not Logged In) ================= -->
+    <div v-if="!token" class="auth-wrapper">
       
-      <div v-if="sessions.length === 0" class="no-data">
-        <p>No classes scheduled yet. Please ask the administrator.</p>
-      </div>
-
-      <div v-else class="session-list">
-        <div v-for="session in sessions" :key="session.id" class="session-card">
-          <div class="card-top">
-            <span class="class-time">{{ session.time }}</span>
-            <span class="class-date">{{ formatDate(session.date) }}</span>
-          </div>
-
-          <h3 class="class-title">{{ session.name }}</h3>
-          <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
-
-          <div class="spots-info">
-            <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
-            <p v-if="session.capacity - session.bookings.length > 0" class="spots-left">
-              {{ session.capacity - session.bookings.length }} spots remaining
-            </p>
-            <p v-else class="spots-full">Class is FULL</p>
-          </div>
-
-          <!-- Booking Form -->
-          <div v-if="session.bookings.length < session.capacity" class="booking-form">
-            <input 
-              v-model="bookingNames[session.id]" 
-              type="text" 
-              placeholder="Your name" 
-              class="input-field" 
-            />
-            <button @click="bookSession(session.id)" class="btn-pink">Book Class</button>
-          </div>
-
-          <!-- Roster of Attendees -->
-          <div v-if="session.bookings.length > 0" class="roster">
-            <h4>Registered Attendees:</h4>
-            <ul>
-              <li v-for="booking in session.bookings" :key="booking.id">
-                {{ booking.name }}
-                <button @click="cancelBooking(session.id, booking.id)" class="btn-cancel">
-                  Cancel
-                </button>
-              </li>
-            </ul>
-          </div>
+      <!-- 1. LOGIN CARD -->
+      <div v-if="!forgotPasswordMode" class="auth-card">
+        <h2>Member Sign In</h2>
+        
+        <div class="form-group">
+          <label>Username</label>
+          <input v-model="loginUsername" type="text" placeholder="e.g. admin or user" class="input-field" />
+        </div>
+        
+        <div class="form-group">
+          <label>Password</label>
+          <input 
+            v-model="loginPassword" 
+            type="password" 
+            placeholder="e.g. admin123 or user123" 
+            class="input-field" 
+            @keyup.enter="login"
+          />
+        </div>
+        
+        <button @click="login" class="btn-pink-full">Sign In</button>
+        
+        <div class="auth-helper">
+          <button @click="openForgotPassword" class="btn-link">Forgot Password?</button>
         </div>
       </div>
+
+      <!-- 2. FORGOT PASSWORD RECOVERY CARD -->
+      <div v-else class="auth-card">
+        <h2>Password Recovery</h2>
+        
+        <!-- Step 1: Input Username -->
+        <div v-if="!forgotQuestion">
+          <p class="recovery-text">Enter your username to fetch your recovery security question.</p>
+          <div class="form-group">
+            <label>Username</label>
+            <input v-model="forgotUsername" type="text" placeholder="e.g. admin" class="input-field" />
+          </div>
+          <button @click="getRecoveryQuestion" class="btn-pink-full">Get Question</button>
+        </div>
+
+        <!-- Step 2: Answer Security Question -->
+        <div v-else-if="!recoveredPassword">
+          <p class="recovery-text">Security Question:</p>
+          <p class="security-question-prompt"><strong>{{ forgotQuestion }}</strong></p>
+          
+          <div class="form-group">
+            <label>Your Answer</label>
+            <input 
+              v-model="forgotAnswer" 
+              type="text" 
+              placeholder="Type your answer" 
+              class="input-field" 
+              @keyup.enter="verifyRecoveryAnswer"
+            />
+          </div>
+          <button @click="verifyRecoveryAnswer" class="btn-pink-full">Verify Answer</button>
+        </div>
+
+        <!-- Step 3: Reveal Password -->
+        <div v-else class="recovery-result">
+          <p>Security Answer Confirmed!</p>
+          <p class="password-reveal">Your password is: <strong>{{ recoveredPassword }}</strong></p>
+        </div>
+
+        <!-- Back to Login option -->
+        <div class="auth-helper">
+          <button @click="closeForgotPassword" class="btn-link">Back to Sign In</button>
+        </div>
+      </div>
+
     </div>
 
-    <!-- ADMIN VIEW -->
-    <div v-if="currentView === 'admin'">
-      <div class="admin-layout">
+    <!-- ================= SCHEDULER APPLICATION VIEW (Logged In) ================= -->
+    <div v-else>
+      
+      <!-- Tab Navigation (Only Admins can toggle between Views) -->
+      <div v-if="role === 'admin'" class="tabs">
+        <button 
+          @click="currentView = 'user'" 
+          :class="{ active: currentView === 'user' }"
+          class="tab-button"
+        >
+          User Booking Portal
+        </button>
+        <button 
+          @click="currentView = 'admin'" 
+          :class="{ active: currentView === 'admin' }"
+          class="tab-button"
+        >
+          Admin Control Center
+        </button>
+      </div>
+
+      <!-- Stats Panel -->
+      <div class="stats-panel">
+        <div class="stat-box">
+          <h3>Total Classes</h3>
+          <p class="stat-number">{{ totalSessions }}</p>
+        </div>
+        <div class="stat-box">
+          <h3>Total Bookings</h3>
+          <p class="stat-number">{{ totalBookings }}</p>
+        </div>
+        <div class="stat-box">
+          <h3>Utilization</h3>
+          <p class="stat-number">{{ capacityUtilization }}%</p>
+        </div>
+      </div>
+
+      <!-- USER VIEW (Visible to both Roles, but regular users are locked to it) -->
+      <div v-if="currentView === 'user' || role === 'user'">
+        <h2>Available Sessions</h2>
         
-        <!-- Add Class Form -->
-        <div class="admin-card">
-          <h3>Schedule New Class</h3>
-          <div class="form-group">
-            <label>Class Name</label>
-            <input v-model="newSession.name" type="text" placeholder="e.g. Yoga" class="input-field" />
-          </div>
-          <div class="form-group">
-            <label>Instructor</label>
-            <input v-model="newSession.coach" type="text" placeholder="e.g. Coach Sarah" class="input-field" />
-          </div>
-          <div class="form-group">
-            <label>Date</label>
-            <input v-model="newSession.date" type="date" class="input-field" />
-          </div>
-          <div class="form-group">
-            <label>Time</label>
-            <input v-model="newSession.time" type="time" class="input-field" />
-          </div>
-          <div class="form-group">
-            <label>Capacity</label>
-            <input v-model="newSession.capacity" type="number" placeholder="e.g. 10" class="input-field" />
-          </div>
-          <button @click="createSession" class="btn-pink-full">Create Class</button>
+        <div v-if="sessions.length === 0" class="no-data">
+          <p>No classes scheduled yet. Check back later!</p>
         </div>
 
-        <!-- Management List -->
-        <div class="admin-card">
-          <h3>Manage Classes</h3>
-          
-          <div v-if="sessions.length === 0" class="no-data">
-            <p>No scheduled classes.</p>
-          </div>
+        <div v-else class="session-list">
+          <div v-for="session in sessions" :key="session.id" class="session-card">
+            <div class="card-top">
+              <span class="class-time">{{ session.time }}</span>
+              <span class="class-date">{{ formatDate(session.date) }}</span>
+            </div>
 
-          <div v-else>
-            <div v-for="session in sessions" :key="session.id" class="manage-item">
-              <div>
-                <strong>{{ session.name }}</strong> (Cap: {{ session.capacity }})<br />
-                <span class="manage-meta">{{ session.coach }} | {{ formatDate(session.date) }} at {{ session.time }}</span>
-              </div>
-              <button @click="deleteSession(session.id)" class="btn-delete">Delete</button>
+            <h3 class="class-title">{{ session.name }}</h3>
+            <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
+
+            <div class="spots-info">
+              <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
+              <p v-if="session.capacity - session.bookings.length > 0" class="spots-left">
+                {{ session.capacity - session.bookings.length }} spots remaining
+              </p>
+              <p v-else class="spots-full">Class is FULL</p>
+            </div>
+
+            <!-- Booking Form -->
+            <div v-if="session.bookings.length < session.capacity" class="booking-form">
+              <input 
+                v-model="bookingNames[session.id]" 
+                type="text" 
+                placeholder="Your name" 
+                class="input-field" 
+              />
+              <button @click="bookSession(session.id)" class="btn-pink">Book Class</button>
+            </div>
+
+            <!-- Roster of Attendees -->
+            <div v-if="session.bookings.length > 0" class="roster">
+              <h4>Registered Attendees:</h4>
+              <ul>
+                <li v-for="booking in session.bookings" :key="booking.id">
+                  {{ booking.name }}
+                  <button @click="cancelBooking(session.id, booking.id)" class="btn-cancel">
+                    Cancel
+                  </button>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
-
       </div>
+
+      <!-- ADMIN VIEW (Admin role only) -->
+      <div v-if="currentView === 'admin' && role === 'admin'">
+        <div class="admin-layout">
+          
+          <!-- Add Class Form -->
+          <div class="admin-card">
+            <h3>Schedule New Class</h3>
+            <div class="form-group">
+              <label>Class Name</label>
+              <input v-model="newSession.name" type="text" placeholder="e.g. Yoga Flow" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>Instructor</label>
+              <input v-model="newSession.coach" type="text" placeholder="e.g. Coach Sarah" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input v-model="newSession.date" type="date" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>Time</label>
+              <input v-model="newSession.time" type="time" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>Capacity</label>
+              <input v-model="newSession.capacity" type="number" placeholder="e.g. 10" class="input-field" />
+            </div>
+            <button @click="createSession" class="btn-pink-full">Create Class</button>
+          </div>
+
+          <!-- Management List -->
+          <div class="admin-card">
+            <h3>Manage Classes</h3>
+            
+            <div v-if="sessions.length === 0" class="no-data">
+              <p>No scheduled classes.</p>
+            </div>
+
+            <div v-else>
+              <div v-for="session in sessions" :key="session.id" class="manage-item">
+                <div>
+                  <strong>{{ session.name }}</strong> (Cap: {{ session.capacity }})<br />
+                  <span class="manage-meta">{{ session.coach }} | {{ formatDate(session.date) }} at {{ session.time }}</span>
+                </div>
+                <button @click="deleteSession(session.id)" class="btn-delete">Delete</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
 
   </div>
 </template>
 
 <script>
+// Mock accounts for offline fallback
+const OFFLINE_ACCOUNTS = {
+  admin: { password: "admin123", role: "admin", name: "System Admin", token: "token-admin-123", question: "What is our fitness brand name?", answer: "flexzone" },
+  user: { password: "user123", role: "user", name: "Regular Member", token: "token-user-123", question: "What is the primary color of our theme?", answer: "pink" }
+};
+
 export default {
   data() {
     return {
+      // Session/Role Authentication states
+      token: sessionStorage.getItem("token") || null,
+      role: sessionStorage.getItem("role") || null,
+      name: sessionStorage.getItem("name") || null,
+      
+      // Connection states
+      offlineMode: false,
+
+      // Login Inputs
+      loginUsername: "",
+      loginPassword: "",
+
+      // Forgot Password State
+      forgotPasswordMode: false,
+      forgotUsername: "",
+      forgotQuestion: null,
+      forgotAnswer: "",
+      recoveredPassword: null,
+
+      // App states
       currentView: "user",
       sessions: [],
       bookingNames: {}, // stores booking input name per session ID
@@ -180,7 +298,6 @@ export default {
       return this.sessions.length;
     },
     totalBookings() {
-      // Beginner-friendly loop
       let count = 0;
       for (let i = 0; i < this.sessions.length; i++) {
         count = count + this.sessions[i].bookings.length;
@@ -205,10 +322,35 @@ export default {
   },
 
   mounted() {
-    this.fetchSessions();
+    // Check if the backend is reachable
+    this.checkConnection();
   },
 
   methods: {
+    // Check if Express server is online; otherwise fallback to offline mode
+    checkConnection() {
+      fetch(this.apiBase + "/sessions")
+        .then(() => {
+          this.offlineMode = false;
+          if (this.token) {
+            this.fetchSessions();
+          }
+        })
+        .catch(() => {
+          // If server cannot be reached, fallback silently
+          this.offlineMode = true;
+          this.loadOfflineSessions();
+        });
+    },
+
+    // Return standard authorization headers
+    authHeaders() {
+      return {
+        "Authorization": "Bearer " + this.token,
+        "Content-Type": "application/json"
+      };
+    },
+
     // Show alert messages
     showAlert(msg, type) {
       this.alertMessage = msg;
@@ -222,25 +364,217 @@ export default {
       return date.toDateString();
     },
 
-    // Fetch classes from backend
-    fetchSessions() {
-      fetch(this.apiBase + "/sessions")
+    // ================= OFFLINE STORAGE HELPERS =================
+    loadOfflineSessions() {
+      let data = localStorage.getItem("offline_sessions");
+      if (!data) {
+        // Seed default sessions
+        const defaults = [
+          { id: 1719220000000, name: "Yoga Flow", coach: "Sarah Jenkins", date: "2026-07-01", time: "08:30", capacity: 15, bookings: [{ id: 1, name: "Alice Smith" }] },
+          { id: 1719220000001, name: "HIIT Cardio Strength", coach: "Mike Peterson", date: "2026-07-02", time: "17:00", capacity: 20, bookings: [] }
+        ];
+        localStorage.setItem("offline_sessions", JSON.stringify(defaults));
+        this.sessions = defaults;
+      } else {
+        this.sessions = JSON.parse(data);
+      }
+    },
+
+    saveOfflineSessions() {
+      localStorage.setItem("offline_sessions", JSON.stringify(this.sessions));
+    },
+
+    // ================= AUTHENTICATION METHODS =================
+    login() {
+      if (!this.loginUsername || !this.loginPassword) {
+        this.showAlert("Please fill in both fields.", "error");
+        return;
+      }
+
+      // Offline Login Fallback
+      if (this.offlineMode) {
+        const account = OFFLINE_ACCOUNTS[this.loginUsername.toLowerCase().trim()];
+        if (account && account.password === this.loginPassword) {
+          sessionStorage.setItem("token", account.token);
+          sessionStorage.setItem("role", account.role);
+          sessionStorage.setItem("name", account.name);
+
+          this.token = account.token;
+          this.role = account.role;
+          this.name = account.name;
+
+          this.loginUsername = "";
+          this.loginPassword = "";
+
+          this.loadOfflineSessions();
+          this.showAlert("Welcome back (Offline Mode), " + this.name + "!", "success");
+        } else {
+          this.showAlert("Invalid username or password", "error");
+        }
+        return;
+      }
+
+      // Online Login
+      fetch(this.apiBase + "/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: this.loginUsername,
+          password: this.loginPassword
+        })
+      })
         .then(response => {
-          if (!response.ok) {
-            throw new Error("Could not load sessions");
-          }
-          return response.json();
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Login failed");
+            }
+            return data;
+          });
+        })
+        .then(data => {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("role", data.role);
+          sessionStorage.setItem("name", data.name);
+          
+          this.token = data.token;
+          this.role = data.role;
+          this.name = data.name;
+
+          this.loginUsername = "";
+          this.loginPassword = "";
+
+          this.fetchSessions();
+          this.showAlert("Welcome back, " + this.name + "!", "success");
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
+        });
+    },
+
+    logout() {
+      sessionStorage.clear();
+      this.token = null;
+      this.role = null;
+      this.name = null;
+      this.sessions = [];
+      this.currentView = "user";
+      this.showAlert("Logged out successfully.", "info");
+    },
+
+    openForgotPassword() {
+      this.forgotPasswordMode = true;
+      this.forgotUsername = "";
+      this.forgotQuestion = null;
+      this.forgotAnswer = "";
+      this.recoveredPassword = null;
+    },
+
+    closeForgotPassword() {
+      this.forgotPasswordMode = false;
+    },
+
+    getRecoveryQuestion() {
+      if (!this.forgotUsername || this.forgotUsername.trim() === "") {
+        this.showAlert("Please enter your username.", "error");
+        return;
+      }
+
+      if (this.offlineMode) {
+        const account = OFFLINE_ACCOUNTS[this.forgotUsername.toLowerCase().trim()];
+        if (!account) {
+          this.showAlert("Username not found", "error");
+        } else {
+          this.forgotQuestion = account.question;
+          this.forgotAnswer = "";
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/forgot-password/question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: this.forgotUsername })
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to fetch question");
+            }
+            return data;
+          });
+        })
+        .then(data => {
+          this.forgotQuestion = data.question;
+          this.forgotAnswer = "";
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
+        });
+    },
+
+    verifyRecoveryAnswer() {
+      if (!this.forgotAnswer || this.forgotAnswer.trim() === "") {
+        this.showAlert("Please type your answer.", "error");
+        return;
+      }
+
+      if (this.offlineMode) {
+        const account = OFFLINE_ACCOUNTS[this.forgotUsername.toLowerCase().trim()];
+        if (account && account.answer === this.forgotAnswer.toLowerCase().trim()) {
+          this.recoveredPassword = account.password;
+        } else {
+          this.showAlert("Incorrect answer to security question", "error");
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/forgot-password/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: this.forgotUsername,
+          answer: this.forgotAnswer
+        })
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Incorrect answer");
+            }
+            return data;
+          });
+        })
+        .then(data => {
+          this.recoveredPassword = data.password;
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
+        });
+    },
+
+    // ================= DATA MANIPULATION METHODS =================
+    fetchSessions() {
+      fetch(this.apiBase + "/sessions", {
+        headers: this.authHeaders()
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to load sessions");
+            }
+            return data;
+          });
         })
         .then(data => {
           this.sessions = data;
         })
         .catch(err => {
           console.error(err);
-          this.showAlert("Failed to connect to the backend server. Make sure it is running.", "error");
+          this.offlineMode = true;
+          this.loadOfflineSessions();
         });
     },
 
-    // Book a class
     bookSession(sessionId) {
       const name = this.bookingNames[sessionId];
       if (!name || name.trim() === "") {
@@ -248,11 +582,33 @@ export default {
         return;
       }
 
+      // Offline Booking Logic
+      if (this.offlineMode) {
+        const session = this.sessions.find(s => s.id === sessionId);
+        if (!session) return;
+        
+        if (session.bookings.length >= session.capacity) {
+          this.showAlert("Class is fully booked!", "error");
+          return;
+        }
+
+        const duplicate = session.bookings.some(b => b.name.toLowerCase() === name.trim().toLowerCase());
+        if (duplicate) {
+          this.showAlert("Already booked into this session.", "error");
+          return;
+        }
+
+        session.bookings.push({ id: Date.now(), name: name.trim() });
+        this.saveOfflineSessions();
+        this.bookingNames[sessionId] = "";
+        this.showAlert("Success! Booked for " + name, "success");
+        return;
+      }
+
+      // Online Booking
       fetch(this.apiBase + "/sessions/" + sessionId + "/book", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: this.authHeaders(),
         body: JSON.stringify({ name: name })
       })
         .then(response => {
@@ -265,7 +621,7 @@ export default {
         })
         .then(updatedSession => {
           this.bookingNames[sessionId] = "";
-          this.fetchSessions(); // reload list
+          this.fetchSessions();
           this.showAlert("Success! Booked for " + name, "success");
         })
         .catch(err => {
@@ -273,13 +629,22 @@ export default {
         });
     },
 
-    // Cancel booking
     cancelBooking(sessionId, bookingId) {
+      // Offline Cancel Logic
+      if (this.offlineMode) {
+        const session = this.sessions.find(s => s.id === sessionId);
+        if (session) {
+          session.bookings = session.bookings.filter(b => b.id !== bookingId);
+          this.saveOfflineSessions();
+          this.showAlert("Booking cancelled successfully.", "info");
+        }
+        return;
+      }
+
+      // Online Cancel
       fetch(this.apiBase + "/sessions/" + sessionId + "/cancel-booking", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: this.authHeaders(),
         body: JSON.stringify({ bookingId: bookingId })
       })
         .then(response => {
@@ -291,7 +656,7 @@ export default {
           });
         })
         .then(updatedSession => {
-          this.fetchSessions(); // reload list
+          this.fetchSessions();
           this.showAlert("Booking cancelled successfully.", "info");
         })
         .catch(err => {
@@ -299,7 +664,6 @@ export default {
         });
     },
 
-    // Create a new session
     createSession() {
       const name = this.newSession.name;
       const coach = this.newSession.coach;
@@ -312,11 +676,36 @@ export default {
         return;
       }
 
+      const numericCapacity = parseInt(capacity, 10);
+
+      // Offline Creation
+      if (this.offlineMode) {
+        const newSession = {
+          id: Date.now(),
+          name: name,
+          coach: coach,
+          date: date,
+          time: time,
+          capacity: numericCapacity,
+          bookings: []
+        };
+        this.sessions.push(newSession);
+        this.saveOfflineSessions();
+
+        this.newSession.name = "";
+        this.newSession.coach = "";
+        this.newSession.date = "";
+        this.newSession.time = "";
+        this.newSession.capacity = "";
+
+        this.showAlert("Class scheduled successfully!", "success");
+        return;
+      }
+
+      // Online Creation
       fetch(this.apiBase + "/sessions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: this.authHeaders(),
         body: JSON.stringify({
           name: name,
           coach: coach,
@@ -334,14 +723,13 @@ export default {
           });
         })
         .then(createdSession => {
-          // Reset form inputs
           this.newSession.name = "";
           this.newSession.coach = "";
           this.newSession.date = "";
           this.newSession.time = "";
           this.newSession.capacity = "";
           
-          this.fetchSessions(); // reload list
+          this.fetchSessions();
           this.showAlert("Class scheduled successfully!", "success");
         })
         .catch(err => {
@@ -349,15 +737,24 @@ export default {
         });
     },
 
-    // Delete a session
     deleteSession(sessionId) {
       const confirmDelete = confirm("Are you sure you want to delete this class?");
       if (!confirmDelete) {
         return;
       }
 
+      // Offline Deletion
+      if (this.offlineMode) {
+        this.sessions = this.sessions.filter(s => s.id !== sessionId);
+        this.saveOfflineSessions();
+        this.showAlert("Class deleted successfully.", "info");
+        return;
+      }
+
+      // Online Deletion
       fetch(this.apiBase + "/sessions/" + sessionId, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: this.authHeaders()
       })
         .then(response => {
           return response.json().then(data => {
@@ -368,7 +765,7 @@ export default {
           });
         })
         .then(data => {
-          this.fetchSessions(); // reload list
+          this.fetchSessions();
           this.showAlert("Class deleted successfully.", "info");
         })
         .catch(err => {
@@ -380,7 +777,7 @@ export default {
 </script>
 
 <style>
-/* Global styles using only named colors (black, white, pink, hotpink, gray, red, green) */
+/* Global styles using only named colors (black, white, pink, hotpink, gray, red, green, blue) */
 body {
   background-color: black;
   color: white;
@@ -394,6 +791,25 @@ body {
   margin: 20px auto;
   padding: 20px;
   background-color: black;
+}
+
+/* Calendar & Clock Input Indicators Fix (WebKit browser dark-mode visibility) */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* Offline Mode Warning Banner */
+.offline-banner {
+  background-color: yellow;
+  color: black;
+  text-align: center;
+  padding: 10px;
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 20px;
+  border: 2px solid white;
 }
 
 /* Header */
@@ -412,6 +828,106 @@ body {
 .header p {
   color: white;
   margin-top: 5px;
+}
+
+/* User Badge Header Info */
+.user-badge {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  padding: 8px 15px;
+  background-color: black;
+  border: 1px solid pink;
+  font-size: 13px;
+}
+
+.btn-logout {
+  background-color: red;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-logout:hover {
+  background-color: white;
+  color: black;
+}
+
+/* Auth Cards (Login & Forgot Password) */
+.auth-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  border: 2px solid pink;
+  padding: 30px 20px;
+  background-color: black;
+}
+
+.auth-card h2 {
+  color: hotpink;
+  margin-top: 0;
+  margin-bottom: 25px;
+  text-align: center;
+  border-bottom: 1px solid pink;
+  padding-bottom: 10px;
+}
+
+.auth-helper {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.btn-link {
+  background: transparent;
+  color: pink;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+.btn-link:hover {
+  color: hotpink;
+}
+
+.recovery-text {
+  font-size: 13px;
+  color: lightgray;
+  margin-bottom: 15px;
+}
+
+.security-question-prompt {
+  color: hotpink;
+  font-size: 16px;
+  margin: 10px 0 20px 0;
+  border-left: 3px solid pink;
+  padding-left: 10px;
+}
+
+.recovery-result {
+  text-align: center;
+  padding: 15px;
+  background-color: black;
+  border: 1px dashed pink;
+  margin-bottom: 20px;
+}
+
+.password-reveal {
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+.password-reveal strong {
+  color: hotpink;
+  font-size: 18px;
 }
 
 /* Tab Navigation */

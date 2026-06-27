@@ -7,12 +7,7 @@
       "date": "2026-07-01",
       "time": "08:30",
       "capacity": 15,
-      "bookings": [
-        {
-          "id": 1,
-          "name": "Alice Smith"
-        }
-      ]
+      "bookings": []
     },
     {
       "id": 1719220000001,
