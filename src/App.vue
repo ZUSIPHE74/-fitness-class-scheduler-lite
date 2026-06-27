@@ -1,213 +1,157 @@
 <template>
-  <div class="app-wrapper">
-    <header class="app-header">
-      <div class="logo-area">
-        <div class="logo-badge">FZ</div>
-        <h1>FlexZone Fitness</h1>
-      </div>
-      <div class="view-toggle">
-        <button 
-          @click="currentView = 'user'" 
-          :class="['toggle-btn', { active: currentView === 'user' }]"
-        >
-          User Booking Portal
-        </button>
-        <button 
-          @click="currentView = 'admin'" 
-          :class="['toggle-btn', { active: currentView === 'admin' }]"
-        >
-          Admin Control Center
-        </button>
-      </div>
-    </header>
-
-    <!-- Stats Dashboard -->
-    <section class="stats-dashboard">
-      <div class="stat-card">
-        <span class="stat-label">Total Sessions</span>
-        <span class="stat-value">{{ totalSessions }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Total Bookings</span>
-        <span class="stat-value">{{ totalBookings }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Capacity Utilisation</span>
-        <span class="stat-value">{{ capacityUtilization }}%</span>
-        <div class="progress-bar-container mini">
-          <div class="progress-bar" :style="{ width: capacityUtilization + '%' }"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Error/Success Alerts -->
-    <div v-if="alertMessage" :class="['alert-banner', alertType]">
-      <span>{{ alertMessage }}</span>
-      <button @click="alertMessage = null" class="close-alert">&times;</button>
+  <div class="container">
+    
+    <!-- Title Section -->
+    <div class="header">
+      <h1>FlexZone Fitness Scheduler</h1>
+      <p>Easy class bookings and management</p>
     </div>
 
-    <!-- Main Content Area -->
-    <main class="main-content">
+    <!-- Tab Navigation -->
+    <div class="tabs">
+      <button 
+        @click="currentView = 'user'" 
+        :class="{ active: currentView === 'user' }"
+        class="tab-button"
+      >
+        User Booking Portal
+      </button>
+      <button 
+        @click="currentView = 'admin'" 
+        :class="{ active: currentView === 'admin' }"
+        class="tab-button"
+      >
+        Admin Control Center
+      </button>
+    </div>
+
+    <!-- Stats Panel -->
+    <div class="stats-panel">
+      <div class="stat-box">
+        <h3>Total Classes</h3>
+        <p class="stat-number">{{ totalSessions }}</p>
+      </div>
+      <div class="stat-box">
+        <h3>Total Bookings</h3>
+        <p class="stat-number">{{ totalBookings }}</p>
+      </div>
+      <div class="stat-box">
+        <h3>Utilization</h3>
+        <p class="stat-number">{{ capacityUtilization }}%</p>
+      </div>
+    </div>
+
+    <!-- Alert Notices -->
+    <div v-if="alertMessage" :class="alertType" class="alert-box">
+      <p>{{ alertMessage }}</p>
+      <button @click="alertMessage = null" class="close-alert-btn">Close</button>
+    </div>
+
+    <!-- USER VIEW -->
+    <div v-if="currentView === 'user'">
+      <h2>Available Sessions</h2>
       
-      <!-- USER PORTAL -->
-      <section v-if="currentView === 'user'" class="portal-section">
-        <div class="section-header">
-          <h2>Available Fitness Sessions</h2>
-          <p>Book your spot in our upcoming coach-led training classes.</p>
-        </div>
+      <div v-if="sessions.length === 0" class="no-data">
+        <p>No classes scheduled yet. Please ask the administrator.</p>
+      </div>
 
-        <div v-if="sessions.length === 0" class="empty-state">
-          <p>No sessions scheduled. Check back later!</p>
-        </div>
+      <div v-else class="session-list">
+        <div v-for="session in sessions" :key="session.id" class="session-card">
+          <div class="card-top">
+            <span class="class-time">{{ session.time }}</span>
+            <span class="class-date">{{ formatDate(session.date) }}</span>
+          </div>
 
-        <div v-else class="sessions-grid">
-          <div 
-            v-for="session in sessions" 
-            :key="session.id" 
-            class="session-card"
-          >
-            <div class="session-card-header">
-              <span class="class-time">{{ session.time }}</span>
-              <span class="class-date">{{ formatDate(session.date) }}</span>
-            </div>
+          <h3 class="class-title">{{ session.name }}</h3>
+          <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
 
-            <h3 class="class-title">{{ session.name }}</h3>
-            <p class="class-coach">Led by <strong>{{ session.coach }}</strong></p>
+          <div class="spots-info">
+            <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
+            <p v-if="session.capacity - session.bookings.length > 0" class="spots-left">
+              {{ session.capacity - session.bookings.length }} spots remaining
+            </p>
+            <p v-else class="spots-full">Class is FULL</p>
+          </div>
 
-            <div class="capacity-info">
-              <div class="capacity-stats">
-                <span>{{ session.bookings.length }} booked</span>
-                <span>{{ session.capacity - session.bookings.length }} spots left</span>
-              </div>
-              <div class="progress-bar-container">
-                <div 
-                  :class="['progress-bar', { full: session.bookings.length >= session.capacity }]" 
-                  :style="{ width: (session.bookings.length / session.capacity * 100) + '%' }"
-                ></div>
-              </div>
-            </div>
+          <!-- Booking Form -->
+          <div v-if="session.bookings.length < session.capacity" class="booking-form">
+            <input 
+              v-model="bookingNames[session.id]" 
+              type="text" 
+              placeholder="Your name" 
+              class="input-field" 
+            />
+            <button @click="bookSession(session.id)" class="btn-pink">Book Class</button>
+          </div>
 
-            <!-- Booking form -->
-            <div v-if="session.bookings.length < session.capacity" class="booking-box">
-              <input 
-                v-model="bookingNames[session.id]" 
-                type="text" 
-                placeholder="Enter your name" 
-                class="booking-input"
-                @keyup.enter="bookSession(session.id)"
-              />
-              <button @click="bookSession(session.id)" class="book-btn">Book Seat</button>
-            </div>
-            <div v-else class="fully-booked-tag">
-              Fully Booked
-            </div>
-
-            <!-- Attendee roster for users (collapsible/expandable list) -->
-            <div class="roster-section" v-if="session.bookings.length > 0">
-              <details>
-                <summary>Registered Attendees ({{ session.bookings.length }})</summary>
-                <ul class="attendee-list">
-                  <li v-for="booking in session.bookings" :key="booking.id" class="attendee-item">
-                    <span>{{ booking.name }}</span>
-                    <button 
-                      @click="cancelBooking(session.id, booking.id)" 
-                      class="cancel-booking-btn" 
-                      title="Cancel Booking"
-                    >
-                      Cancel
-                    </button>
-                  </li>
-                </ul>
-              </details>
-            </div>
+          <!-- Roster of Attendees -->
+          <div v-if="session.bookings.length > 0" class="roster">
+            <h4>Registered Attendees:</h4>
+            <ul>
+              <li v-for="booking in session.bookings" :key="booking.id">
+                {{ booking.name }}
+                <button @click="cancelBooking(session.id, booking.id)" class="btn-cancel">
+                  Cancel
+                </button>
+              </li>
+            </ul>
           </div>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <!-- ADMIN CONTROL CENTER -->
-      <section v-if="currentView === 'admin'" class="portal-section admin-portal">
-        <div class="admin-grid">
+    <!-- ADMIN VIEW -->
+    <div v-if="currentView === 'admin'">
+      <div class="admin-layout">
+        
+        <!-- Add Class Form -->
+        <div class="admin-card">
+          <h3>Schedule New Class</h3>
+          <div class="form-group">
+            <label>Class Name</label>
+            <input v-model="newSession.name" type="text" placeholder="e.g. Yoga" class="input-field" />
+          </div>
+          <div class="form-group">
+            <label>Instructor</label>
+            <input v-model="newSession.coach" type="text" placeholder="e.g. Coach Sarah" class="input-field" />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input v-model="newSession.date" type="date" class="input-field" />
+          </div>
+          <div class="form-group">
+            <label>Time</label>
+            <input v-model="newSession.time" type="time" class="input-field" />
+          </div>
+          <div class="form-group">
+            <label>Capacity</label>
+            <input v-model="newSession.capacity" type="number" placeholder="e.g. 10" class="input-field" />
+          </div>
+          <button @click="createSession" class="btn-pink-full">Create Class</button>
+        </div>
+
+        <!-- Management List -->
+        <div class="admin-card">
+          <h3>Manage Classes</h3>
           
-          <!-- Add new session form -->
-          <div class="form-container">
-            <div class="card-header">
-              <h2>Schedule New Session</h2>
-            </div>
-            <div class="form-group">
-              <label>Class Name</label>
-              <input v-model="newSession.name" type="text" placeholder="e.g. Pilates Core Workout" />
-            </div>
-            <div class="form-group">
-              <label>Coach / Instructor</label>
-              <input v-model="newSession.coach" type="text" placeholder="e.g. Coach David" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Date</label>
-                <input v-model="newSession.date" type="date" />
-              </div>
-              <div class="form-group">
-                <label>Time</label>
-                <input v-model="newSession.time" type="time" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Maximum Capacity</label>
-              <input v-model="newSession.capacity" type="number" min="1" placeholder="e.g. 15" />
-            </div>
-            <button @click="createSession" class="action-btn-primary">Publish Session</button>
+          <div v-if="sessions.length === 0" class="no-data">
+            <p>No scheduled classes.</p>
           </div>
 
-          <!-- Session management roster -->
-          <div class="management-container">
-            <div class="card-header">
-              <h2>Manage Scheduled Sessions</h2>
+          <div v-else>
+            <div v-for="session in sessions" :key="session.id" class="manage-item">
+              <div>
+                <strong>{{ session.name }}</strong> (Cap: {{ session.capacity }})<br />
+                <span class="manage-meta">{{ session.coach }} | {{ formatDate(session.date) }} at {{ session.time }}</span>
+              </div>
+              <button @click="deleteSession(session.id)" class="btn-delete">Delete</button>
             </div>
-
-            <div v-if="sessions.length === 0" class="empty-state">
-              <p>No active sessions. Create one on the left!</p>
-            </div>
-
-            <table v-else class="management-table">
-              <thead>
-                <tr>
-                  <th>Class Details</th>
-                  <th>Coach</th>
-                  <th>Date & Time</th>
-                  <th>Booked</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="session in sessions" :key="session.id">
-                  <td>
-                    <div class="table-class-title">{{ session.name }}</div>
-                    <div class="table-class-cap">Cap: {{ session.capacity }}</div>
-                  </td>
-                  <td>{{ session.coach }}</td>
-                  <td>
-                    <div>{{ formatDate(session.date) }}</div>
-                    <div class="table-class-time">{{ session.time }}</div>
-                  </td>
-                  <td>
-                    <span class="table-booked-count" :class="{ 'at-capacity': session.bookings.length >= session.capacity }">
-                      {{ session.bookings.length }} / {{ session.capacity }}
-                    </span>
-                  </td>
-                  <td>
-                    <button @click="deleteSession(session.id)" class="action-btn-danger">
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
-
         </div>
-      </section>
 
-    </main>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -217,7 +161,7 @@ export default {
     return {
       currentView: "user",
       sessions: [],
-      bookingNames: {}, // stores typed input per session ID
+      bookingNames: {}, // stores booking input name per session ID
       newSession: {
         name: "",
         coach: "",
@@ -236,13 +180,27 @@ export default {
       return this.sessions.length;
     },
     totalBookings() {
-      return this.sessions.reduce((acc, s) => acc + s.bookings.length, 0);
+      // Beginner-friendly loop
+      let count = 0;
+      for (let i = 0; i < this.sessions.length; i++) {
+        count = count + this.sessions[i].bookings.length;
+      }
+      return count;
     },
     capacityUtilization() {
-      if (this.sessions.length === 0) return 0;
-      const totalCapacity = this.sessions.reduce((acc, s) => acc + s.capacity, 0);
-      if (totalCapacity === 0) return 0;
-      return Math.round((this.totalBookings / totalCapacity) * 100);
+      if (this.sessions.length === 0) {
+        return 0;
+      }
+      let totalCapacity = 0;
+      let totalBooked = 0;
+      for (let i = 0; i < this.sessions.length; i++) {
+        totalCapacity = totalCapacity + this.sessions[i].capacity;
+        totalBooked = totalBooked + this.sessions[i].bookings.length;
+      }
+      if (totalCapacity === 0) {
+        return 0;
+      }
+      return Math.round((totalBooked / totalCapacity) * 100);
     }
   },
 
@@ -251,710 +209,492 @@ export default {
   },
 
   methods: {
-    // Utility to show alert notices
-    showAlert(msg, type = "info") {
+    // Show alert messages
+    showAlert(msg, type) {
       this.alertMessage = msg;
       this.alertType = type;
-      setTimeout(() => {
-        if (this.alertMessage === msg) {
-          this.alertMessage = null;
-        }
-      }, 5000);
     },
 
-    // Format date string for nicer UI
+    // Format date simply
     formatDate(dateStr) {
       if (!dateStr) return "";
       const date = new Date(dateStr);
-      return date.toLocaleDateString(undefined, { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      return date.toDateString();
     },
 
-    // GET: Fetch sessions
-    async fetchSessions() {
-      try {
-        const response = await fetch(`${this.apiBase}/sessions`);
-        if (!response.ok) throw new Error("Could not fetch sessions");
-        this.sessions = await response.json();
-      } catch (err) {
-        console.error(err);
-        this.showAlert("Failed to connect to the backend server. Make sure the server is running on port 3001.", "error");
-      }
+    // Fetch classes from backend
+    fetchSessions() {
+      fetch(this.apiBase + "/sessions")
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Could not load sessions");
+          }
+          return response.json();
+        })
+        .then(data => {
+          this.sessions = data;
+        })
+        .catch(err => {
+          console.error(err);
+          this.showAlert("Failed to connect to the backend server. Make sure it is running.", "error");
+        });
     },
 
-    // POST: Book session
-    async bookSession(sessionId) {
+    // Book a class
+    bookSession(sessionId) {
       const name = this.bookingNames[sessionId];
       if (!name || name.trim() === "") {
-        this.showAlert("Please enter your name to book a session.", "error");
+        this.showAlert("Please enter your name.", "error");
         return;
       }
 
-      try {
-        const response = await fetch(`${this.apiBase}/sessions/${sessionId}/book`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name })
+      fetch(this.apiBase + "/sessions/" + sessionId + "/book", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name: name })
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to book");
+            }
+            return data;
+          });
+        })
+        .then(updatedSession => {
+          this.bookingNames[sessionId] = "";
+          this.fetchSessions(); // reload list
+          this.showAlert("Success! Booked for " + name, "success");
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
         });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to book session");
-        }
-
-        // Clean up input field
-        this.bookingNames[sessionId] = "";
-        
-        // Refresh local session object
-        const index = this.sessions.findIndex(s => s.id === sessionId);
-        if (index !== -1) {
-          this.sessions[index] = result;
-        }
-        
-        this.showAlert(`Seat booked successfully for ${name}!`, "success");
-      } catch (err) {
-        this.showAlert(err.message, "error");
-      }
     },
 
-    // POST: Cancel booking
-    async cancelBooking(sessionId, bookingId) {
-      try {
-        const response = await fetch(`${this.apiBase}/sessions/${sessionId}/cancel-booking`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId })
+    // Cancel booking
+    cancelBooking(sessionId, bookingId) {
+      fetch(this.apiBase + "/sessions/" + sessionId + "/cancel-booking", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ bookingId: bookingId })
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to cancel");
+            }
+            return data;
+          });
+        })
+        .then(updatedSession => {
+          this.fetchSessions(); // reload list
+          this.showAlert("Booking cancelled successfully.", "info");
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
         });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to cancel booking");
-        }
-
-        // Refresh local session object
-        const index = this.sessions.findIndex(s => s.id === sessionId);
-        if (index !== -1) {
-          this.sessions[index] = result;
-        }
-
-        this.showAlert("Booking successfully cancelled.", "info");
-      } catch (err) {
-        this.showAlert(err.message, "error");
-      }
     },
 
-    // POST: Create session
-    async createSession() {
-      const { name, coach, date, time, capacity } = this.newSession;
+    // Create a new session
+    createSession() {
+      const name = this.newSession.name;
+      const coach = this.newSession.coach;
+      const date = this.newSession.date;
+      const time = this.newSession.time;
+      const capacity = this.newSession.capacity;
 
       if (!name || !coach || !date || !time || !capacity) {
-        this.showAlert("Please fill in all details for the new session.", "error");
+        this.showAlert("Please fill in all inputs.", "error");
         return;
       }
 
-      try {
-        const response = await fetch(`${this.apiBase}/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, coach, date, time, capacity })
+      fetch(this.apiBase + "/sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: name,
+          coach: coach,
+          date: date,
+          time: time,
+          capacity: capacity
+        })
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to create class");
+            }
+            return data;
+          });
+        })
+        .then(createdSession => {
+          // Reset form inputs
+          this.newSession.name = "";
+          this.newSession.coach = "";
+          this.newSession.date = "";
+          this.newSession.time = "";
+          this.newSession.capacity = "";
+          
+          this.fetchSessions(); // reload list
+          this.showAlert("Class scheduled successfully!", "success");
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
         });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to create session");
-        }
-
-        // Reset form
-        this.newSession = { name: "", coach: "", date: "", time: "", capacity: "" };
-        
-        // Refresh list
-        this.sessions.push(result);
-        this.showAlert("New session published successfully!", "success");
-      } catch (err) {
-        this.showAlert(err.message, "error");
-      }
     },
 
-    // DELETE: Remove session
-    async deleteSession(sessionId) {
-      if (!confirm("Are you sure you want to delete this session? This will remove all bookings for it.")) {
+    // Delete a session
+    deleteSession(sessionId) {
+      const confirmDelete = confirm("Are you sure you want to delete this class?");
+      if (!confirmDelete) {
         return;
       }
 
-      try {
-        const response = await fetch(`${this.apiBase}/sessions/${sessionId}`, {
-          method: "DELETE"
+      fetch(this.apiBase + "/sessions/" + sessionId, {
+        method: "DELETE"
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to delete");
+            }
+            return data;
+          });
+        })
+        .then(data => {
+          this.fetchSessions(); // reload list
+          this.showAlert("Class deleted successfully.", "info");
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
         });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to delete session");
-        }
-
-        this.sessions = this.sessions.filter(s => s.id !== sessionId);
-        this.showAlert("Session deleted successfully.", "info");
-      } catch (err) {
-        this.showAlert(err.message, "error");
-      }
     }
   }
 };
 </script>
 
 <style>
-/* Reset & Modern Colors */
-:root {
-  --bg-primary: #0b0f19;
-  --bg-secondary: #131b2e;
-  --bg-tertiary: #1b2641;
-  --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  --accent-blue: #3b82f6;
-  --accent-emerald: #10b981;
-  --accent-rose: #f43f5e;
-  --border-light: rgba(255, 255, 255, 0.08);
-}
-
+/* Global styles using only named colors (black, white, pink, hotpink, gray, red, green) */
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-main);
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: black;
+  color: white;
+  font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
-  cursor: default; /* disable portfolio none-cursor inside full-screen frames if any */
 }
 
-/* Container Wrapper */
-.app-wrapper {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 24px;
+.container {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: black;
 }
 
-/* Header Area */
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-light);
-  padding-bottom: 24px;
-  margin-bottom: 32px;
-  flex-wrap: wrap;
-  gap: 16px;
+/* Header */
+.header {
+  text-align: center;
+  border-bottom: 3px solid pink;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
 }
 
-.logo-area {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.header h1 {
+  color: hotpink;
+  margin: 0;
 }
 
-.logo-badge {
-  background: linear-gradient(135deg, var(--accent-blue), #8b5cf6);
+.header p {
   color: white;
-  width: 44px;
-  height: 44px;
+  margin-top: 5px;
+}
+
+/* Tab Navigation */
+.tabs {
   display: flex;
-  align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 18px;
-  border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+  margin-bottom: 20px;
 }
 
-.logo-area h1 {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  margin: 0;
-}
-
-/* Toggle Navigation */
-.view-toggle {
-  display: flex;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 30px;
-  padding: 4px;
-}
-
-.toggle-btn {
-  background: transparent;
-  color: var(--text-muted);
-  border: none;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 22px;
-  border-radius: 25px;
+.tab-button {
+  background-color: black;
+  color: pink;
+  border: 2px solid pink;
+  padding: 10px 20px;
+  margin: 0 5px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  font-weight: bold;
 }
 
-.toggle-btn.active {
-  background-color: var(--accent-blue);
+.tab-button:hover {
+  background-color: hotpink;
+  color: black;
+}
+
+.tab-button.active {
+  background-color: hotpink;
+  color: black;
+  border-color: hotpink;
+}
+
+/* Stats Panel */
+.stats-panel {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.stat-box {
+  flex: 1;
+  text-align: center;
+  border: 2px solid pink;
+  padding: 15px;
+  margin: 0 5px;
+}
+
+.stat-box h3 {
+  color: hotpink;
+  margin: 0;
+  font-size: 14px;
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: bold;
+  margin: 10px 0 0 0;
+}
+
+/* Alert Boxes */
+.alert-box {
+  padding: 10px;
+  margin-bottom: 20px;
+  border: 2px solid pink;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alert-box.success {
+  background-color: green;
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  border-color: white;
 }
 
-/* Stats Dashboard */
-.stats-dashboard {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
+.alert-box.error {
+  background-color: red;
+  color: white;
+  border-color: white;
 }
 
-.stat-card {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
+.alert-box.info {
+  background-color: blue;
+  color: white;
+  border-color: white;
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--text-main);
-  line-height: 1;
-}
-
-/* Alert Banner */
-.alert-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 32px;
-  font-size: 14px;
-  animation: slideDown 0.3s ease;
-}
-
-.alert-banner.success {
-  background-color: rgba(16, 185, 129, 0.12);
-  border: 1px solid var(--accent-emerald);
-  color: #a7f3d0;
-}
-
-.alert-banner.error {
-  background-color: rgba(244, 63, 94, 0.12);
-  border: 1px solid var(--accent-rose);
-  color: #fecdd3;
-}
-
-.alert-banner.info {
-  background-color: rgba(59, 130, 246, 0.12);
-  border: 1px solid var(--accent-blue);
-  color: #bfdbfe;
-}
-
-.close-alert {
-  background: transparent;
-  color: inherit;
+.close-alert-btn {
+  background-color: white;
+  color: black;
   border: none;
-  font-size: 20px;
+  padding: 5px 10px;
   cursor: pointer;
+  font-weight: bold;
 }
 
-/* Session Grid / Portal */
-.portal-section .section-header {
-  margin-bottom: 24px;
-}
-
-.portal-section .section-header h2 {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 6px 0;
-}
-
-.portal-section .section-header p {
-  color: var(--text-muted);
-  font-size: 14px;
-  margin: 0;
-}
-
-.sessions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 24px;
-}
-
+/* Session Cards */
 .session-card {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  border: 2px solid pink;
+  padding: 20px;
+  margin-bottom: 20px;
+  background-color: black;
 }
 
-.session-card:hover {
-  border-color: var(--accent-blue);
-  box-shadow: 0 12px 36px rgba(59, 130, 246, 0.1);
-}
-
-.session-card-header {
+.card-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  text-transform: uppercase;
-}
-
-.class-time {
-  background-color: var(--bg-tertiary);
-  color: var(--accent-blue);
-  padding: 6px 12px;
-  border-radius: 20px;
-}
-
-.class-date {
-  color: var(--text-muted);
+  color: hotpink;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
 
 .class-title {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0 0 6px 0;
+  color: white;
+  margin: 0 0 5px 0;
+  font-size: 22px;
 }
 
 .class-coach {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin: 0 0 24px 0;
+  color: lightgray;
+  margin: 0 0 15px 0;
 }
 
-.capacity-info {
-  margin-bottom: 24px;
+.spots-info {
+  margin-bottom: 15px;
 }
 
-.capacity-stats {
+.spots-left {
+  color: hotpink;
+  font-weight: bold;
+}
+
+.spots-full {
+  color: red;
+  font-weight: bold;
+}
+
+/* Forms and Inputs */
+.booking-form {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  font-weight: 500;
+  margin-bottom: 15px;
 }
 
-.progress-bar-container {
-  background-color: var(--bg-tertiary);
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
+.input-field {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid pink;
+  background-color: black;
+  color: white;
+  margin-right: 10px;
 }
 
-.progress-bar-container.mini {
-  height: 4px;
+.input-field::placeholder {
+  color: gray;
+}
+
+.btn-pink {
+  background-color: hotpink;
+  color: black;
+  border: none;
+  padding: 10px 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-pink:hover {
+  background-color: white;
+  color: black;
+}
+
+.btn-pink-full {
+  background-color: hotpink;
+  color: black;
+  border: none;
+  padding: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  width: 100%;
   margin-top: 10px;
 }
 
-.progress-bar {
-  background: linear-gradient(90deg, var(--accent-blue), #8b5cf6);
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.4s ease;
+.btn-pink-full:hover {
+  background-color: white;
+  color: black;
 }
 
-.progress-bar.full {
-  background: var(--accent-rose);
+/* Attendee List Roster */
+.roster {
+  border-top: 1px solid pink;
+  padding-top: 10px;
 }
 
-/* Booking Box */
-.booking-box {
-  display: flex;
-  gap: 10px;
-  margin-top: auto;
+.roster h4 {
+  margin: 0 0 5px 0;
+  color: hotpink;
 }
 
-.booking-input {
-  flex: 1;
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  color: var(--text-main);
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.booking-input:focus {
-  border-color: var(--accent-blue);
-}
-
-.book-btn {
-  background-color: var(--accent-blue);
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.book-btn:hover {
-  background-color: #2563eb;
-}
-
-.fully-booked-tag {
-  background-color: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.2);
-  color: var(--accent-rose);
-  text-align: center;
-  padding: 12px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  margin-top: auto;
-}
-
-/* Collapsible Attendee Roster */
-.roster-section {
-  margin-top: 16px;
-  border-top: 1px solid var(--border-light);
-  padding-top: 14px;
-}
-
-.roster-section summary {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  outline: none;
-}
-
-.roster-section summary:hover {
-  color: var(--text-main);
-}
-
-.attendee-list {
+.roster ul {
   list-style: none;
-  padding: 8px 0 0 0;
+  padding: 0;
   margin: 0;
 }
 
-.attendee-item {
+.roster li {
+  padding: 5px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
-  padding: 6px 8px;
-  background-color: var(--bg-tertiary);
-  margin-bottom: 4px;
-  border-radius: 6px;
+  border-bottom: 1px solid gray;
 }
 
-.cancel-booking-btn {
-  background: transparent;
-  color: var(--accent-rose);
-  border: none;
-  font-size: 11px;
-  font-weight: 600;
+.btn-cancel {
+  background-color: black;
+  color: red;
+  border: 1px solid red;
+  padding: 2px 5px;
   cursor: pointer;
-  padding: 2px 6px;
 }
 
-.cancel-booking-btn:hover {
-  text-decoration: underline;
+.btn-cancel:hover {
+  background-color: red;
+  color: white;
 }
 
-/* Admin Grid Layout */
-.admin-grid {
+/* Admin Panel Layout */
+.admin-layout {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 32px;
-  align-items: start;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
-@media (max-width: 960px) {
-  .admin-grid {
-    grid-template-columns: 1fr;
-  }
+.admin-card {
+  border: 2px solid pink;
+  padding: 20px;
+  background-color: black;
 }
 
-.form-container, .management-container {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  padding: 28px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-}
-
-.card-header h2 {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 20px 0;
-  border-bottom: 1px solid var(--border-light);
-  padding-bottom: 14px;
+.admin-card h3 {
+  color: hotpink;
+  margin-top: 0;
+  border-bottom: 1px solid pink;
+  padding-bottom: 10px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  margin-bottom: 10px;
 }
 
 .form-group label {
+  color: white;
+  margin-bottom: 5px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.form-group input {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  color: var(--text-main);
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 14px;
-  outline: none;
+.manage-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid pink;
 }
 
-.form-group input:focus {
-  border-color: var(--accent-blue);
+.manage-meta {
+  font-size: 12px;
+  color: lightgray;
 }
 
-.action-btn-primary {
-  width: 100%;
-  background: linear-gradient(135deg, var(--accent-blue), #8b5cf6);
+.btn-delete {
+  background-color: red;
   color: white;
   border: none;
-  padding: 14px;
-  border-radius: 10px;
-  font-family: inherit;
-  font-weight: 700;
-  font-size: 14px;
+  padding: 5px 10px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.2);
-  transition: all 0.2s ease;
+  font-weight: bold;
 }
 
-.action-btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.3);
+.btn-delete:hover {
+  background-color: white;
+  color: black;
 }
 
-/* Management Table */
-.management-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.management-table th, .management-table td {
-  padding: 14px;
-  border-bottom: 1px solid var(--border-light);
-  font-size: 14px;
-}
-
-.management-table th {
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.table-class-title {
-  font-weight: 700;
-}
-
-.table-class-cap {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.table-class-time {
-  font-size: 12px;
-  color: var(--accent-blue);
-  margin-top: 2px;
-}
-
-.table-booked-count {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--accent-emerald);
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.table-booked-count.at-capacity {
-  background-color: rgba(244, 63, 94, 0.1);
-  color: var(--accent-rose);
-}
-
-.action-btn-danger {
-  background-color: rgba(244, 63, 94, 0.1);
-  color: var(--accent-rose);
-  border: 1px solid rgba(244, 63, 94, 0.2);
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-family: inherit;
-  font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn-danger:hover {
-  background-color: var(--accent-rose);
-  color: white;
-}
-
-.empty-state {
+.no-data {
   text-align: center;
-  padding: 48px;
-  color: var(--text-muted);
-}
-
-/* Animations */
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  color: gray;
 }
 </style>
