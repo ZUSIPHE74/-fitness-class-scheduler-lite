@@ -12,9 +12,14 @@
     "preview": "vite preview",
     "lint:oxlint": "oxlint . --fix -D correctness --ignore-path .gitignore",
     "lint:eslint": "eslint . --fix --cache",
-    "lint": "run-s lint:*"
+    "lint": "run-s lint:*",
+    "server": "node server/index.cjs",
+    "start": "concurrently \"npm run server\" \"npm run dev\""
   },
   "dependencies": {
+    "concurrently": "^10.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "vue": "^3.5.25",
     "vue-router": "^4.6.3"
   },

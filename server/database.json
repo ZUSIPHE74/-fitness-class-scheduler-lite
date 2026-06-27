@@ -1,0 +1,27 @@
+{
+  "sessions": [
+    {
+      "id": 1719220000000,
+      "name": "Yoga Flow",
+      "coach": "Sarah Jenkins",
+      "date": "2026-07-01",
+      "time": "08:30",
+      "capacity": 15,
+      "bookings": [
+        {
+          "id": 1,
+          "name": "Alice Smith"
+        }
+      ]
+    },
+    {
+      "id": 1719220000001,
+      "name": "HIIT Cardio Strength",
+      "coach": "Mike Peterson",
+      "date": "2026-07-02",
+      "time": "17:00",
+      "capacity": 20,
+      "bookings": []
+    }
+  ]
+}
