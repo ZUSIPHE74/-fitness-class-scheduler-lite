@@ -168,16 +168,18 @@
         </div>
       </div>
 
-      <!-- USER VIEW (User Booking Portal: shows available sessions) -->
+      <!-- USER VIEW (User Booking Portal: shows available sessions and activity history side-by-side) -->
       <div v-if="currentView === 'user' || role === 'user'">
-        <div class="sessions-section">
-          <h2>Available Sessions</h2>
+        <div class="user-layout">
           
-          <div v-if="sessions.length === 0" class="no-data">
-            <p>No classes scheduled yet. Check back later!</p>
-          </div>
+          <div class="sessions-section">
+            <h2>Available Sessions</h2>
+            
+            <div v-if="sessions.length === 0" class="no-data">
+              <p>No classes scheduled yet. Check back later!</p>
+            </div>
 
-          <div v-else class="session-list">
+            <div v-else class="session-list">
               <div v-for="session in sessions" :key="session.id" class="session-card">
                 <div class="card-top">
                   <span class="class-time">{{ session.startTime }} - {{ session.endTime }} ({{ session.duration }} mins)</span>
@@ -187,31 +189,50 @@
                 <h3 class="class-title">{{ session.name }}</h3>
                 <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
 
-              <div class="spots-info">
-                <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
-                <p v-if="session.capacity - session.bookings.length > 0" class="spots-left">
-                  {{ session.capacity - session.bookings.length }} spots remaining
-                </p>
-                <p v-else class="spots-full">Class is FULL</p>
-              </div>
+                <div class="spots-info">
+                  <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
+                  <p v-if="session.capacity - session.bookings.length > 0" class="spots-left">
+                    {{ session.capacity - session.bookings.length }} spots remaining
+                  </p>
+                  <p v-else class="spots-full">Class is FULL</p>
+                </div>
 
-              <!-- Booking Section (Toggles to "Class Booked" and a "Cancel" button if logged-in user is booked) -->
-              <div v-if="isUserBooked(session)" class="booked-status-container">
-                <span class="booked-label">Class Booked</span>
-                <button @click="cancelMyBooking(session)" class="btn-cancel-large">
-                  Cancel
-                </button>
-              </div>
-              
-              <div v-else-if="session.bookings.length < session.capacity" class="booking-action-bar">
-                <button @click="bookSession(session.id)" class="btn-pink-full">Book Class</button>
-              </div>
-              
-              <div v-else class="spots-full-box">
-                Class is Full
+                <!-- Booking Section (Toggles to "Class Booked" and a "Cancel" button if logged-in user is booked) -->
+                <div v-if="isUserBooked(session)" class="booked-status-container">
+                  <span class="booked-label">Class Booked</span>
+                  <button @click="cancelMyBooking(session)" class="btn-cancel-large">
+                    Cancel
+                  </button>
+                </div>
+                
+                <div v-else-if="session.bookings.length < session.capacity" class="booking-action-bar">
+                  <button @click="bookSession(session.id)" class="btn-pink-full">Book Class</button>
+                </div>
+                
+                <div v-else class="spots-full-box">
+                  Class is Full
+                </div>
               </div>
             </div>
           </div>
+
+          <!-- Activity History Column for User Booking Portal -->
+          <div class="admin-card history-card">
+            <h3>Activity History</h3>
+            
+            <div v-if="history.length === 0" class="no-data">
+              <p>No activity logged yet.</p>
+            </div>
+
+            <div v-else class="history-list">
+              <div v-for="log in sortedHistory" :key="log.id" class="history-item">
+                <span class="history-time">[{{ formatTimestamp(log.timestamp) }}]</span>
+                <span class="history-user">{{ log.user }}</span>
+                <span>{{ log.action }}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -474,8 +495,8 @@ export default {
           this.offlineMode = false;
           if (this.token) {
             this.fetchSessions();
+            this.fetchHistory();
             if (this.role === "admin") {
-              this.fetchHistory();
               this.fetchInstructors();
               this.fetchSessionHistory();
             }
@@ -766,6 +787,10 @@ export default {
 
           this.fetchSessions();
           this.fetchHistory();
+          if (this.role === "admin") {
+            this.fetchInstructors();
+            this.fetchSessionHistory();
+          }
           this.showAlert("Welcome back, " + this.name + "!", "success");
         })
         .catch(err => {
@@ -974,6 +999,7 @@ export default {
         })
         .then(updatedSession => {
           this.fetchSessions();
+          this.fetchHistory();
           this.showAlert("Success! Booked for " + userNameToBook + " in " + session.name + " class.", "success");
         })
         .catch(err => {
@@ -1023,8 +1049,8 @@ export default {
         })
         .then(updatedSession => {
           this.fetchSessions();
+          this.fetchHistory();
           if (this.role === "admin") {
-            this.fetchHistory();
             this.fetchInstructors();
             this.fetchSessionHistory();
           }
