@@ -262,23 +262,6 @@
             </div>
           </div>
 
-          <!-- Activity History (Admin audit logs) -->
-          <div class="admin-card history-card">
-            <h3>Activity History</h3>
-            
-            <div v-if="history.length === 0" class="no-data">
-              <p>No activity logged yet.</p>
-            </div>
-
-            <div v-else class="history-list">
-              <div v-for="log in sortedHistory" :key="log.id" class="history-item">
-                <span class="history-time">[{{ formatTimestamp(log.timestamp) }}]</span>
-                <span class="history-user">{{ log.user }}</span>
-                <span>{{ log.action }}</span>
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
 
@@ -1448,10 +1431,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 10px;
 }
 
-/* Admin Panel Layout (3-Column Grid) */
+/* Admin Panel Layout (2-Column Grid) */
 .admin-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
