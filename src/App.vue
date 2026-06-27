@@ -330,6 +330,25 @@
             </div>
           </div>
 
+          <!-- Instructor Clocking History -->
+          <div class="admin-card">
+            <h3>Instructor Clocking History</h3>
+            
+            <div v-if="clockingHistory.length === 0" class="no-data">
+              <p>No clocking activity recorded yet.</p>
+            </div>
+
+            <div v-else class="session-history-list" style="max-height: 400px; overflow-y: auto;">
+              <div v-for="log in sortedClockingHistory" :key="log.id" class="history-item">
+                <span class="history-time">[{{ formatClockTime(log.timestamp) }}]</span>
+                <strong :class="{ 'text-green': log.action === 'Clocked In', 'text-red': log.action === 'Clocked Out' }">
+                  [{{ log.action }}]
+                </strong>
+                <strong>{{ log.name }}</strong> ({{ log.specialty }})
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -381,6 +400,7 @@ export default {
       history: [], // Stores Audit history logs
       instructors: [],
       sessionHistory: [],
+      clockingHistory: [],
       newInstructorName: "",
       newInstructorSpecialty: "",
       bookingNames: {}, // unused now since booking inputs are removed
@@ -449,6 +469,17 @@ export default {
         return new Date(b.timestamp) - new Date(a.timestamp);
       });
       return copy;
+    },
+    // Sort clocking history logs chronologically (newest first)
+    sortedClockingHistory() {
+      let copy = [];
+      for (let i = 0; i < this.clockingHistory.length; i++) {
+        copy.push(this.clockingHistory[i]);
+      }
+      copy.sort((a, b) => {
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      });
+      return copy;
     }
   },
 
@@ -468,6 +499,7 @@ export default {
             if (this.role === "admin") {
               this.fetchInstructors();
               this.fetchSessionHistory();
+              this.fetchClockingHistory();
             }
           }
         })
@@ -717,6 +749,7 @@ export default {
           this.loadOfflineSessions();
           if (account.role === "admin") {
             this.loadOfflineHistory();
+            this.fetchClockingHistory();
           }
           this.showAlert("Welcome back, " + this.name + "!", "success");
         } else {
@@ -759,6 +792,7 @@ export default {
           if (this.role === "admin") {
             this.fetchInstructors();
             this.fetchSessionHistory();
+            this.fetchClockingHistory();
           }
           this.showAlert("Welcome back, " + this.name + "!", "success");
         })
@@ -1281,6 +1315,17 @@ export default {
           inst.clockedIn = true;
           inst.lastClockIn = new Date().toISOString();
           localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+          
+          if (!this.clockingHistory) this.clockingHistory = [];
+          this.clockingHistory.push({
+            id: Date.now(),
+            name: inst.name,
+            specialty: inst.specialty,
+            action: "Clocked In",
+            timestamp: new Date().toISOString()
+          });
+          localStorage.setItem("offline_clocking_history", JSON.stringify(this.clockingHistory));
+
           this.showAlert(inst.name + " clocked in.", "success");
         }
         return;
@@ -1296,6 +1341,7 @@ export default {
         })
         .then(() => {
           this.fetchInstructors();
+          this.fetchClockingHistory();
           this.showAlert("Instructor clocked in.", "success");
         })
         .catch(err => this.showAlert(err.message, "error"));
@@ -1308,6 +1354,17 @@ export default {
           inst.clockedIn = false;
           inst.lastClockOut = new Date().toISOString();
           localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+
+          if (!this.clockingHistory) this.clockingHistory = [];
+          this.clockingHistory.push({
+            id: Date.now(),
+            name: inst.name,
+            specialty: inst.specialty,
+            action: "Clocked Out",
+            timestamp: new Date().toISOString()
+          });
+          localStorage.setItem("offline_clocking_history", JSON.stringify(this.clockingHistory));
+
           this.showAlert(inst.name + " clocked out.", "info");
         }
         return;
@@ -1323,6 +1380,7 @@ export default {
         })
         .then(() => {
           this.fetchInstructors();
+          this.fetchClockingHistory();
           this.showAlert("Instructor clocked out.", "info");
         })
         .catch(err => this.showAlert(err.message, "error"));
@@ -1357,6 +1415,31 @@ export default {
       if (!isoStr) return "";
       const date = new Date(isoStr);
       return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
+    },
+
+    fetchClockingHistory() {
+      if (this.offlineMode) {
+        const data = localStorage.getItem("offline_clocking_history");
+        if (data) {
+          this.clockingHistory = JSON.parse(data);
+        } else {
+          this.clockingHistory = [];
+          localStorage.setItem("offline_clocking_history", JSON.stringify([]));
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/clocking-history", {
+        headers: this.authHeaders()
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to load clocking history");
+          return res.json();
+        })
+        .then(data => {
+          this.clockingHistory = data;
+        })
+        .catch(err => console.error(err));
     }
   }
 };

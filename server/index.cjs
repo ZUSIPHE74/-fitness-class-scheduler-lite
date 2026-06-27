@@ -447,6 +447,18 @@ app.post('/api/instructors/:id/clock-in', verifyAdmin, (req, res) => {
 
   instructor.clockedIn = true;
   instructor.lastClockIn = new Date().toISOString();
+
+  // Log clocking action
+  const clockLog = {
+    id: Date.now(),
+    name: instructor.name,
+    specialty: instructor.specialty,
+    action: 'Clocked In',
+    timestamp: new Date().toISOString()
+  };
+  if (!db.clockingHistory) db.clockingHistory = [];
+  db.clockingHistory.push(clockLog);
+
   writeDB(db);
   res.json(instructor);
 });
@@ -463,6 +475,18 @@ app.post('/api/instructors/:id/clock-out', verifyAdmin, (req, res) => {
 
   instructor.clockedIn = false;
   instructor.lastClockOut = new Date().toISOString();
+
+  // Log clocking action
+  const clockLog = {
+    id: Date.now(),
+    name: instructor.name,
+    specialty: instructor.specialty,
+    action: 'Clocked Out',
+    timestamp: new Date().toISOString()
+  };
+  if (!db.clockingHistory) db.clockingHistory = [];
+  db.clockingHistory.push(clockLog);
+
   writeDB(db);
   res.json(instructor);
 });
@@ -471,6 +495,12 @@ app.post('/api/instructors/:id/clock-out', verifyAdmin, (req, res) => {
 app.get('/api/session-history', verifyAdmin, (req, res) => {
   const db = readDB();
   res.json(db.sessionHistory || []);
+});
+
+// 18. Get Instructor Clocking History (Admin only)
+app.get('/api/clocking-history', verifyAdmin, (req, res) => {
+  const db = readDB();
+  res.json(db.clockingHistory || []);
 });
 
 app.listen(PORT, () => {
