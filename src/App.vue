@@ -151,6 +151,24 @@
 
     <!-- ================= SCHEDULER APPLICATION VIEW (Logged In) ================= -->
     <div v-else>
+      
+      <!-- Tab Navigation (Only Admins can toggle between Views; Admin tab appears first) -->
+      <div v-if="role === 'admin'" class="tabs">
+        <button 
+          @click="currentView = 'admin'" 
+          :class="{ active: currentView === 'admin' }"
+          class="tab-button"
+        >
+          Admin Control Center
+        </button>
+        <button 
+          @click="currentView = 'user'" 
+          :class="{ active: currentView === 'user' }"
+          class="tab-button"
+        >
+          User Booking Portal
+        </button>
+      </div>
 
       <!-- Stats Panel (Only visible on the Admin Control Center tab) -->
       <div v-if="currentView === 'admin' && role === 'admin'" class="stats-panel">
