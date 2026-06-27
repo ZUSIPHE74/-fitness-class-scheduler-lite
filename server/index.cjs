@@ -214,15 +214,22 @@ app.post('/api/sessions/:id/book', verifyToken, (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
+  // Require both name and surname (at least two words)
+  const trimmedName = name.trim();
+  const nameParts = trimmedName.split(/\s+/);
+  if (nameParts.length < 2 || nameParts[0] === "" || nameParts[1] === "") {
+    return res.status(400).json({ error: 'Please enter both your name and surname.' });
+  }
+
   // Capacity validation check
   if (session.bookings.length >= session.capacity) {
     return res.status(400).json({ error: 'Class is fully booked! Cannot exceed capacity.' });
   }
 
   // Prevent duplicate booking
-  const alreadyBooked = session.bookings.some(b => b.name.toLowerCase() === name.trim().toLowerCase());
+  const alreadyBooked = session.bookings.some(b => b.name.toLowerCase() === trimmedName.toLowerCase());
   if (alreadyBooked) {
-    return res.status(400).json({ error: 'This person is already booked into this session.' });
+    return res.status(400).json({ error: 'already booked' });
   }
 
   const newBooking = {

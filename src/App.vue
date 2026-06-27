@@ -619,6 +619,13 @@ export default {
         return;
       }
 
+      const trimmed = name.trim();
+      const nameParts = trimmed.split(/\s+/);
+      if (nameParts.length < 2 || nameParts[0] === "" || nameParts[1] === "") {
+        this.showAlert("Please enter both your name and surname.", "error");
+        return;
+      }
+
       const session = this.sessions.find(s => s.id === sessionId);
       if (!session) return;
 
@@ -629,22 +636,22 @@ export default {
           return;
         }
 
-        const duplicate = session.bookings.some(b => b.name.toLowerCase() === name.trim().toLowerCase());
+        const duplicate = session.bookings.some(b => b.name.toLowerCase() === trimmed.toLowerCase());
         if (duplicate) {
-          this.showAlert("Already booked into this session.", "error");
+          this.showAlert("already booked", "error");
           return;
         }
 
         const newBookingId = Date.now();
-        session.bookings.push({ id: newBookingId, name: name.trim() });
+        session.bookings.push({ id: newBookingId, name: trimmed });
         this.saveOfflineSessions();
         
         // Track the booking for UI toggle
-        this.userBookings[sessionId] = { id: newBookingId, name: name.trim() };
+        this.userBookings[sessionId] = { id: newBookingId, name: trimmed };
         sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
 
         this.bookingNames[sessionId] = "";
-        this.showAlert("Success! Booked for " + name + " in " + session.name + " class.", "success");
+        this.showAlert("Success! Booked for " + trimmed + " in " + session.name + " class.", "success");
         return;
       }
 
@@ -652,7 +659,7 @@ export default {
       fetch(this.apiBase + "/sessions/" + sessionId + "/book", {
         method: "POST",
         headers: this.authHeaders(),
-        body: JSON.stringify({ name: name })
+        body: JSON.stringify({ name: trimmed })
       })
         .then(response => {
           return response.json().then(data => {
@@ -664,15 +671,15 @@ export default {
         })
         .then(updatedSession => {
           // Find the new booking in the list
-          const latestBooking = updatedSession.bookings.find(b => b.name.toLowerCase() === name.trim().toLowerCase());
+          const latestBooking = updatedSession.bookings.find(b => b.name.toLowerCase() === trimmed.toLowerCase());
           
           // Track the booking locally
-          this.userBookings[sessionId] = { id: latestBooking.id, name: name.trim() };
+          this.userBookings[sessionId] = { id: latestBooking.id, name: trimmed };
           sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
 
           this.bookingNames[sessionId] = "";
           this.fetchSessions();
-          this.showAlert("Success! Booked for " + name + " in " + session.name + " class.", "success");
+          this.showAlert("Success! Booked for " + trimmed + " in " + session.name + " class.", "success");
         })
         .catch(err => {
           this.showAlert(err.message, "error");

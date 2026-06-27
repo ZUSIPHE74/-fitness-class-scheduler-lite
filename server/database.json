@@ -47,7 +47,12 @@
       "date": "2026-06-29",
       "time": "09:30",
       "capacity": 15,
-      "bookings": []
+      "bookings": [
+        {
+          "id": 1782565079594,
+          "name": "Lina"
+        }
+      ]
     }
   ]
 }
