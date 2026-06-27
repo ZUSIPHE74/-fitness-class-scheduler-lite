@@ -445,7 +445,7 @@ export default {
       };
     },
 
-    // Show alert messages (closes automatically in 3 seconds)
+    // Show alert messages (closes automatically in 2 seconds)
     showAlert(msg, type) {
       this.alertMessage = msg;
       this.alertType = type;
@@ -456,7 +456,7 @@ export default {
 
       this.alertTimeout = setTimeout(() => {
         this.alertMessage = null;
-      }, 3000);
+      }, 2000);
     },
 
     // Format date simply

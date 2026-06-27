@@ -23,6 +23,10 @@
         {
           "id": 1782564818995,
           "name": "fc"
+        },
+        {
+          "id": 1782569372791,
+          "name": "Melody Andi"
         }
       ]
     },
@@ -41,6 +45,10 @@
         {
           "id": 1782566810744,
           "name": "Regular Member"
+        },
+        {
+          "id": 1782569733370,
+          "name": "Melody Andi"
         }
       ]
     },
@@ -137,6 +145,30 @@
       "timestamp": "2026-06-27T13:27:20.575Z",
       "user": "System Admin",
       "action": "Cancelled booking in class: HIIT Cardio Strength"
+    },
+    {
+      "id": 1782569372791,
+      "timestamp": "2026-06-27T14:09:32.791Z",
+      "user": "Melody Andi",
+      "action": "Booked class: Yoga Flow"
+    },
+    {
+      "id": 1782569722549,
+      "timestamp": "2026-06-27T14:15:22.549Z",
+      "user": "Melody Andi",
+      "action": "Booked class: Pilates"
+    },
+    {
+      "id": 1782569726472,
+      "timestamp": "2026-06-27T14:15:26.472Z",
+      "user": "Melody Andi",
+      "action": "Cancelled booking in class: Pilates"
+    },
+    {
+      "id": 1782569733370,
+      "timestamp": "2026-06-27T14:15:33.370Z",
+      "user": "Melody Andi",
+      "action": "Booked class: HIIT Cardio Strength"
     }
   ]
 }
