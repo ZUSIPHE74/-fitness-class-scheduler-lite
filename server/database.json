@@ -7,7 +7,24 @@
       "date": "2026-07-01",
       "time": "08:30",
       "capacity": 15,
-      "bookings": []
+      "bookings": [
+        {
+          "id": 1782564609364,
+          "name": "Lina"
+        },
+        {
+          "id": 1782564793140,
+          "name": "Lina Z"
+        },
+        {
+          "id": 1782564811788,
+          "name": "Pinkn"
+        },
+        {
+          "id": 1782564818995,
+          "name": "fc"
+        }
+      ]
     },
     {
       "id": 1719220000001,
@@ -16,6 +33,20 @@
       "date": "2026-07-02",
       "time": "17:00",
       "capacity": 20,
+      "bookings": [
+        {
+          "id": 1782564619409,
+          "name": "Lina"
+        }
+      ]
+    },
+    {
+      "id": 1782565042281,
+      "name": "Pilates",
+      "coach": "Instructor Linda",
+      "date": "2026-06-29",
+      "time": "09:30",
+      "capacity": 15,
       "bookings": []
     }
   ]

@@ -18,7 +18,7 @@
       <span>Offline Mode active (saving to LocalStorage). Start the Node.js server locally to enable database sync.</span>
     </div>
 
-    <!-- Alert Notices -->
+    <!-- Alert Notices (3-second auto-closing pop-up) -->
     <div v-if="alertMessage" :class="alertType" class="alert-box">
       <p>{{ alertMessage }}</p>
       <button @click="alertMessage = null" class="close-alert-btn">Close</button>
@@ -163,8 +163,15 @@
               <p v-else class="spots-full">Class is FULL</p>
             </div>
 
-            <!-- Booking Form -->
-            <div v-if="session.bookings.length < session.capacity" class="booking-form">
+            <!-- Booking Section (Disappears and toggles to "Booked Class / Cancel Booking" if already booked) -->
+            <div v-if="hasBookedSession(session.id)" class="booked-status-container">
+              <span class="booked-label">Booked Class</span>
+              <button @click="cancelBooking(session.id, getBookingId(session.id))" class="btn-cancel-large">
+                Cancel Booking
+              </button>
+            </div>
+            
+            <div v-else-if="session.bookings.length < session.capacity" class="booking-form">
               <input 
                 v-model="bookingNames[session.id]" 
                 type="text" 
@@ -173,18 +180,9 @@
               />
               <button @click="bookSession(session.id)" class="btn-pink">Book Class</button>
             </div>
-
-            <!-- Roster of Attendees -->
-            <div v-if="session.bookings.length > 0" class="roster">
-              <h4>Registered Attendees:</h4>
-              <ul>
-                <li v-for="booking in session.bookings" :key="booking.id">
-                  {{ booking.name }}
-                  <button @click="cancelBooking(session.id, booking.id)" class="btn-cancel">
-                    Cancel
-                  </button>
-                </li>
-              </ul>
+            
+            <div v-else class="spots-full-box">
+              Class is Full
             </div>
           </div>
         </div>
@@ -233,6 +231,14 @@
                 <div>
                   <strong>{{ session.name }}</strong> (Cap: {{ session.capacity }})<br />
                   <span class="manage-meta">{{ session.coach }} | {{ formatDate(session.date) }} at {{ session.time }}</span>
+                  
+                  <!-- Registered Trainees (Shown ONLY on Admin Side) -->
+                  <div v-if="session.bookings.length > 0" class="admin-trainees">
+                    <span class="trainee-title">Registered Trainees:</span>
+                    <span v-for="(booking, idx) in session.bookings" :key="booking.id" class="trainee-name">
+                      {{ booking.name }}{{ idx &lt; session.bookings.length - 1 ? ', ' : '' }}
+                    </span>
+                  </div>
                 </div>
                 <button @click="deleteSession(session.id)" class="btn-delete">Delete</button>
               </div>
@@ -262,6 +268,9 @@ export default {
       role: sessionStorage.getItem("role") || null,
       name: sessionStorage.getItem("name") || null,
       
+      // Track session-specific user bookings locally to handle UI toggle
+      userBookings: JSON.parse(sessionStorage.getItem("user_bookings")) || {},
+
       // Connection states
       offlineMode: false,
 
@@ -289,6 +298,7 @@ export default {
       },
       alertMessage: null,
       alertType: "info", // "success", "error", "info"
+      alertTimeout: null,
       apiBase: "http://localhost:3001/api"
     };
   },
@@ -322,7 +332,6 @@ export default {
   },
 
   mounted() {
-    // Check if the backend is reachable
     this.checkConnection();
   },
 
@@ -337,7 +346,6 @@ export default {
           }
         })
         .catch(() => {
-          // If server cannot be reached, fallback silently
           this.offlineMode = true;
           this.loadOfflineSessions();
         });
@@ -351,10 +359,18 @@ export default {
       };
     },
 
-    // Show alert messages
+    // Show alert messages (closes automatically in 3 seconds)
     showAlert(msg, type) {
       this.alertMessage = msg;
       this.alertType = type;
+
+      if (this.alertTimeout) {
+        clearTimeout(this.alertTimeout);
+      }
+
+      this.alertTimeout = setTimeout(() => {
+        this.alertMessage = null;
+      }, 3000);
     },
 
     // Format date simply
@@ -364,11 +380,33 @@ export default {
       return date.toDateString();
     },
 
+    // Check if the current browser session has booked a specific class
+    hasBookedSession(sessionId) {
+      const booking = this.userBookings[sessionId];
+      if (!booking) return false;
+
+      // Verify that the booking actually still exists in the session payload
+      const session = this.sessions.find(s => s.id === sessionId);
+      if (!session) return false;
+
+      for (let i = 0; i < session.bookings.length; i++) {
+        if (session.bookings[i].id === booking.id) {
+          return true;
+        }
+      }
+      return false;
+    },
+
+    // Get the booking ID associated with this session's booking
+    getBookingId(sessionId) {
+      const booking = this.userBookings[sessionId];
+      return booking ? booking.id : null;
+    },
+
     // ================= OFFLINE STORAGE HELPERS =================
     loadOfflineSessions() {
       let data = localStorage.getItem("offline_sessions");
       if (!data) {
-        // Seed default sessions
         const defaults = [
           { id: 1719220000000, name: "Yoga Flow", coach: "Sarah Jenkins", date: "2026-07-01", time: "08:30", capacity: 15, bookings: [{ id: 1, name: "Alice Smith" }] },
           { id: 1719220000001, name: "HIIT Cardio Strength", coach: "Mike Peterson", date: "2026-07-02", time: "17:00", capacity: 20, bookings: [] }
@@ -391,7 +429,6 @@ export default {
         return;
       }
 
-      // Offline Login Fallback
       if (this.offlineMode) {
         const account = OFFLINE_ACCOUNTS[this.loginUsername.toLowerCase().trim()];
         if (account && account.password === this.loginPassword) {
@@ -407,14 +444,13 @@ export default {
           this.loginPassword = "";
 
           this.loadOfflineSessions();
-          this.showAlert("Welcome back (Offline Mode), " + this.name + "!", "success");
+          this.showAlert("Welcome back, " + this.name + "!", "success");
         } else {
           this.showAlert("Invalid username or password", "error");
         }
         return;
       }
 
-      // Online Login
       fetch(this.apiBase + "/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -457,6 +493,7 @@ export default {
       this.role = null;
       this.name = null;
       this.sessions = [];
+      this.userBookings = {};
       this.currentView = "user";
       this.showAlert("Logged out successfully.", "info");
     },
@@ -582,11 +619,11 @@ export default {
         return;
       }
 
+      const session = this.sessions.find(s => s.id === sessionId);
+      if (!session) return;
+
       // Offline Booking Logic
       if (this.offlineMode) {
-        const session = this.sessions.find(s => s.id === sessionId);
-        if (!session) return;
-        
         if (session.bookings.length >= session.capacity) {
           this.showAlert("Class is fully booked!", "error");
           return;
@@ -598,10 +635,16 @@ export default {
           return;
         }
 
-        session.bookings.push({ id: Date.now(), name: name.trim() });
+        const newBookingId = Date.now();
+        session.bookings.push({ id: newBookingId, name: name.trim() });
         this.saveOfflineSessions();
+        
+        // Track the booking for UI toggle
+        this.userBookings[sessionId] = { id: newBookingId, name: name.trim() };
+        sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
+
         this.bookingNames[sessionId] = "";
-        this.showAlert("Success! Booked for " + name, "success");
+        this.showAlert("Success! Booked for " + name + " in " + session.name + " class.", "success");
         return;
       }
 
@@ -620,9 +663,16 @@ export default {
           });
         })
         .then(updatedSession => {
+          // Find the new booking in the list
+          const latestBooking = updatedSession.bookings.find(b => b.name.toLowerCase() === name.trim().toLowerCase());
+          
+          // Track the booking locally
+          this.userBookings[sessionId] = { id: latestBooking.id, name: name.trim() };
+          sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
+
           this.bookingNames[sessionId] = "";
           this.fetchSessions();
-          this.showAlert("Success! Booked for " + name, "success");
+          this.showAlert("Success! Booked for " + name + " in " + session.name + " class.", "success");
         })
         .catch(err => {
           this.showAlert(err.message, "error");
@@ -630,14 +680,19 @@ export default {
     },
 
     cancelBooking(sessionId, bookingId) {
+      const session = this.sessions.find(s => s.id === sessionId);
+      if (!session) return;
+
       // Offline Cancel Logic
       if (this.offlineMode) {
-        const session = this.sessions.find(s => s.id === sessionId);
-        if (session) {
-          session.bookings = session.bookings.filter(b => b.id !== bookingId);
-          this.saveOfflineSessions();
-          this.showAlert("Booking cancelled successfully.", "info");
-        }
+        session.bookings = session.bookings.filter(b => b.id !== bookingId);
+        this.saveOfflineSessions();
+        
+        // Clear local tracking
+        delete this.userBookings[sessionId];
+        sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
+
+        this.showAlert("Booking cancelled successfully.", "info");
         return;
       }
 
@@ -656,6 +711,10 @@ export default {
           });
         })
         .then(updatedSession => {
+          // Clear local tracking
+          delete this.userBookings[sessionId];
+          sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
+
           this.fetchSessions();
           this.showAlert("Booking cancelled successfully.", "info");
         })
@@ -1063,6 +1122,37 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: bold;
 }
 
+/* Booked Status Styling */
+.booked-status-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 2px dashed hotpink;
+  padding: 10px 15px;
+  margin-top: 10px;
+  background-color: black;
+}
+
+.booked-label {
+  color: hotpink;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.btn-cancel-large {
+  background-color: red;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-cancel-large:hover {
+  background-color: white;
+  color: black;
+}
+
 /* Forms and Inputs */
 .booking-form {
   display: flex;
@@ -1112,42 +1202,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: black;
 }
 
-/* Attendee List Roster */
-.roster {
-  border-top: 1px solid pink;
-  padding-top: 10px;
-}
-
-.roster h4 {
-  margin: 0 0 5px 0;
-  color: hotpink;
-}
-
-.roster ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.roster li {
-  padding: 5px 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid gray;
-}
-
-.btn-cancel {
+.spots-full-box {
   background-color: black;
+  border: 2px solid red;
   color: red;
-  border: 1px solid red;
-  padding: 2px 5px;
-  cursor: pointer;
-}
-
-.btn-cancel:hover {
-  background-color: red;
-  color: white;
+  font-weight: bold;
+  text-align: center;
+  padding: 10px;
 }
 
 /* Admin Panel Layout */
@@ -1193,6 +1254,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .manage-meta {
   font-size: 12px;
   color: lightgray;
+  display: block;
+  margin-bottom: 4px;
 }
 
 .btn-delete {
@@ -1212,5 +1275,21 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .no-data {
   text-align: center;
   color: gray;
+}
+
+/* Admin Trainees List (Shown ONLY on Admin Side) */
+.admin-trainees {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.trainee-title {
+  color: hotpink;
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.trainee-name {
+  color: white;
 }
 </style>
