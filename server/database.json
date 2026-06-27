@@ -83,6 +83,16 @@
       "token": "token-user-123",
       "question": "What is the primary color of our theme?",
       "answer": "pink"
+    },
+    {
+      "username": "melody",
+      "password": "8Everly@",
+      "name": "Melody",
+      "surname": "Andi",
+      "role": "user",
+      "token": "token-user-1782568503025",
+      "question": "What is your favorite color?",
+      "answer": "blue"
     }
   ],
   "history": [
