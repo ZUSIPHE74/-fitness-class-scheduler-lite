@@ -39,8 +39,8 @@
           "name": "Lina"
         },
         {
-          "id": 1782565552184,
-          "name": "Lina Williams"
+          "id": 1782566810744,
+          "name": "Regular Member"
         }
       ]
     },
@@ -55,8 +55,78 @@
         {
           "id": 1782565079594,
           "name": "Lina"
+        },
+        {
+          "id": 1782566815058,
+          "name": "Regular Member"
         }
       ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "password": "admin123",
+      "name": "System",
+      "surname": "Admin",
+      "role": "admin",
+      "token": "token-admin-123",
+      "question": "What is our fitness brand name?",
+      "answer": "flexzone"
+    },
+    {
+      "username": "user",
+      "password": "user123",
+      "name": "Regular",
+      "surname": "Member",
+      "role": "user",
+      "token": "token-user-123",
+      "question": "What is the primary color of our theme?",
+      "answer": "pink"
+    }
+  ],
+  "history": [
+    {
+      "id": 1782566765414,
+      "timestamp": "2026-06-27T13:26:05.414Z",
+      "user": "Lina Williams",
+      "action": "Cancelled booking in class: HIIT Cardio Strength"
+    },
+    {
+      "id": 1782566792867,
+      "timestamp": "2026-06-27T13:26:32.867Z",
+      "user": "Regular Member",
+      "action": "Booked class: Yoga Flow"
+    },
+    {
+      "id": 1782566803472,
+      "timestamp": "2026-06-27T13:26:43.472Z",
+      "user": "Regular Member",
+      "action": "Cancelled booking in class: Yoga Flow"
+    },
+    {
+      "id": 1782566810744,
+      "timestamp": "2026-06-27T13:26:50.744Z",
+      "user": "Regular Member",
+      "action": "Booked class: HIIT Cardio Strength"
+    },
+    {
+      "id": 1782566815058,
+      "timestamp": "2026-06-27T13:26:55.058Z",
+      "user": "Regular Member",
+      "action": "Booked class: Pilates"
+    },
+    {
+      "id": 1782566838921,
+      "timestamp": "2026-06-27T13:27:18.921Z",
+      "user": "System Admin",
+      "action": "Booked class: HIIT Cardio Strength"
+    },
+    {
+      "id": 1782566840575,
+      "timestamp": "2026-06-27T13:27:20.575Z",
+      "user": "System Admin",
+      "action": "Cancelled booking in class: HIIT Cardio Strength"
     }
   ]
 }

@@ -152,15 +152,8 @@
     <!-- ================= SCHEDULER APPLICATION VIEW (Logged In) ================= -->
     <div v-else>
       
-      <!-- Tab Navigation (Only Admins can toggle between Views) -->
+      <!-- Tab Navigation (Only Admins can toggle between Views; Admin tab appears first) -->
       <div v-if="role === 'admin'" class="tabs">
-        <button 
-          @click="currentView = 'user'" 
-          :class="{ active: currentView === 'user' }"
-          class="tab-button"
-        >
-          User Booking Portal
-        </button>
         <button 
           @click="currentView = 'admin'" 
           :class="{ active: currentView === 'admin' }"
@@ -168,10 +161,17 @@
         >
           Admin Control Center
         </button>
+        <button 
+          @click="currentView = 'user'" 
+          :class="{ active: currentView === 'user' }"
+          class="tab-button"
+        >
+          User Booking Portal
+        </button>
       </div>
 
-      <!-- Stats Panel -->
-      <div class="stats-panel">
+      <!-- Stats Panel (Only visible on the Admin Control Center tab) -->
+      <div v-if="currentView === 'admin' && role === 'admin'" class="stats-panel">
         <div class="stat-box">
           <h3>Total Classes</h3>
           <p class="stat-number">{{ totalSessions }}</p>
@@ -186,48 +186,71 @@
         </div>
       </div>
 
-      <!-- USER VIEW (Visible to both Roles, but regular users are locked to it) -->
+      <!-- USER VIEW (User Booking Portal: shows available sessions and activity history side-by-side) -->
       <div v-if="currentView === 'user' || role === 'user'">
-        <h2>Available Sessions</h2>
-        
-        <div v-if="sessions.length === 0" class="no-data">
-          <p>No classes scheduled yet. Check back later!</p>
-        </div>
-
-        <div v-else class="session-list">
-          <div v-for="session in sessions" :key="session.id" class="session-card">
-            <div class="card-top">
-              <span class="class-time">{{ session.time }}</span>
-              <span class="class-date">{{ formatDate(session.date) }}</span>
-            </div>
-
-            <h3 class="class-title">{{ session.name }}</h3>
-            <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
-
-            <div class="spots-info">
-              <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
-              <p v-if="session.capacity - session.bookings.length > 0" class="spots-left">
-                {{ session.capacity - session.bookings.length }} spots remaining
-              </p>
-              <p v-else class="spots-full">Class is FULL</p>
-            </div>
-
-            <!-- Booking Section (Toggles to "Class Booked" and a "Cancel" button if logged-in user is booked) -->
-            <div v-if="isUserBooked(session)" class="booked-status-container">
-              <span class="booked-label">Class Booked</span>
-              <button @click="cancelMyBooking(session)" class="btn-cancel-large">
-                Cancel
-              </button>
-            </div>
+        <div class="user-layout">
+          
+          <div class="sessions-section">
+            <h2>Available Sessions</h2>
             
-            <div v-else-if="session.bookings.length < session.capacity" class="booking-action-bar">
-              <button @click="bookSession(session.id)" class="btn-pink-full">Book Class</button>
+            <div v-if="sessions.length === 0" class="no-data">
+              <p>No classes scheduled yet. Check back later!</p>
             </div>
-            
-            <div v-else class="spots-full-box">
-              Class is Full
+
+            <div v-else class="session-list">
+              <div v-for="session in sessions" :key="session.id" class="session-card">
+                <div class="card-top">
+                  <span class="class-time">{{ session.time }}</span>
+                  <span class="class-date">{{ formatDate(session.date) }}</span>
+                </div>
+
+                <h3 class="class-title">{{ session.name }}</h3>
+                <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
+
+                <div class="spots-info">
+                  <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
+                  <p v-if="session.capacity - session.bookings.length > 0" class="spots-left">
+                    {{ session.capacity - session.bookings.length }} spots remaining
+                  </p>
+                  <p v-else class="spots-full">Class is FULL</p>
+                </div>
+
+                <!-- Booking Section (Toggles to "Class Booked" and a "Cancel" button if logged-in user is booked) -->
+                <div v-if="isUserBooked(session)" class="booked-status-container">
+                  <span class="booked-label">Class Booked</span>
+                  <button @click="cancelMyBooking(session)" class="btn-cancel-large">
+                    Cancel
+                  </button>
+                </div>
+                
+                <div v-else-if="session.bookings.length < session.capacity" class="booking-action-bar">
+                  <button @click="bookSession(session.id)" class="btn-pink-full">Book Class</button>
+                </div>
+                
+                <div v-else class="spots-full-box">
+                  Class is Full
+                </div>
+              </div>
             </div>
           </div>
+
+          <!-- Activity History Column for User Booking Portal -->
+          <div class="admin-card history-card">
+            <h3>Activity History</h3>
+            
+            <div v-if="history.length === 0" class="no-data">
+              <p>No activity logged yet.</p>
+            </div>
+
+            <div v-else class="history-list">
+              <div v-for="log in sortedHistory" :key="log.id" class="history-item">
+                <span class="history-time">[{{ formatTimestamp(log.timestamp) }}]</span>
+                <span class="history-user">{{ log.user }}</span>
+                <span>{{ log.action }}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -422,9 +445,7 @@ export default {
           this.offlineMode = false;
           if (this.token) {
             this.fetchSessions();
-            if (this.role === "admin") {
-              this.fetchHistory();
-            }
+            this.fetchHistory();
           }
         })
         .catch(() => {
@@ -665,6 +686,7 @@ export default {
           this.token = account.token;
           this.role = account.role;
           this.name = account.name + " " + account.surname;
+          this.currentView = account.role === "admin" ? "admin" : "user";
 
           this.loginUsername = "";
           this.loginPassword = "";
@@ -702,14 +724,13 @@ export default {
           this.token = data.token;
           this.role = data.role;
           this.name = data.name;
+          this.currentView = data.role === "admin" ? "admin" : "user";
 
           this.loginUsername = "";
           this.loginPassword = "";
 
           this.fetchSessions();
-          if (this.role === "admin") {
-            this.fetchHistory();
-          }
+          this.fetchHistory();
           this.showAlert("Welcome back, " + this.name + "!", "success");
         })
         .catch(err => {
@@ -1587,5 +1608,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: hotpink;
   font-weight: bold;
   margin-right: 6px;
+}
+
+/* User layout split grid */
+.user-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
+}
+
+/* Responsive grid layout */
+@media (max-width: 768px) {
+  .admin-layout,
+  .user-layout {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

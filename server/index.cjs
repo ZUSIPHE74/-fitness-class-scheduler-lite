@@ -333,8 +333,8 @@ app.post('/api/sessions/:id/cancel-booking', verifyToken, (req, res) => {
   res.json(session);
 });
 
-// 10. Get Activity History (Admin only)
-app.get('/api/history', verifyAdmin, (req, res) => {
+// 10. Get Activity History (requires login)
+app.get('/api/history', verifyToken, (req, res) => {
   const db = readDB();
   res.json(db.history);
 });
