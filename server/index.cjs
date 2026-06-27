@@ -10,34 +10,34 @@ const DB_PATH = path.join(__dirname, 'database.json');
 app.use(cors());
 app.use(express.json());
 
-// Hardcoded Accounts with Security Questions for Password Recovery
-const ACCOUNTS = {
-  admin: {
-    password: "admin123",
-    role: "admin",
-    name: "System Admin",
-    token: "token-admin-123",
-    question: "What is our fitness brand name?",
-    answer: "flexzone"
-  },
-  user: {
-    password: "user123",
-    role: "user",
-    name: "Regular Member",
-    token: "token-user-123",
-    question: "What is the primary color of our theme?",
-    answer: "pink"
-  }
-};
-
-// Helper function to read database
+// Helper function to read database and guarantee schema structure
 function readDB() {
   try {
     const data = fs.readFileSync(DB_PATH, 'utf8');
-    return JSON.parse(data);
+    const db = JSON.parse(data);
+    if (!db.sessions) db.sessions = [];
+    if (!db.users || db.users.length === 0) {
+      db.users = [
+        { username: "admin", password: "admin123", name: "System", surname: "Admin", role: "admin", token: "token-admin-123", question: "What is our fitness brand name?", answer: "flexzone" },
+        { username: "user", password: "user123", name: "Regular", surname: "Member", role: "user", token: "token-user-123", question: "What is the primary color of our theme?", answer: "pink" }
+      ];
+    }
+    if (!db.history) db.history = [];
+    return db;
   } catch (err) {
-    console.error('Error reading database file, returning empty state:', err);
-    return { sessions: [] };
+    const defaults = {
+      sessions: [
+        { id: 1719220000000, name: "Yoga Flow", coach: "Sarah Jenkins", date: "2026-07-01", time: "08:30", capacity: 15, bookings: [] },
+        { id: 1719220000001, name: "HIIT Cardio Strength", coach: "Mike Peterson", date: "2026-07-02", time: "17:00", capacity: 20, bookings: [] }
+      ],
+      users: [
+        { username: "admin", password: "admin123", name: "System", surname: "Admin", role: "admin", token: "token-admin-123", question: "What is our fitness brand name?", answer: "flexzone" },
+        { username: "user", password: "user123", name: "Regular", surname: "Member", role: "user", token: "token-user-123", question: "What is the primary color of our theme?", answer: "pink" }
+      ],
+      history: []
+    };
+    writeDB(defaults);
+    return defaults;
   }
 }
 
@@ -50,7 +50,7 @@ function writeDB(data) {
   }
 }
 
-// Middleware: Verify Token (User or Admin) for general features
+// Middleware: Verify Token (User or Admin)
 function verifyToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) {
@@ -63,14 +63,18 @@ function verifyToken(req, res, next) {
   }
 
   const token = parts[1];
-  if (token !== 'token-user-123' && token !== 'token-admin-123') {
+  const db = readDB();
+  const user = db.users.find(u => u.token === token);
+  
+  if (!user) {
     return res.status(403).json({ error: 'Access denied: Session expired or invalid.' });
   }
 
+  req.user = user; // Attach user context to request
   next();
 }
 
-// Middleware: Verify Admin Token for administrative features (add/delete)
+// Middleware: Verify Admin Token
 function verifyAdmin(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) {
@@ -83,14 +87,55 @@ function verifyAdmin(req, res, next) {
   }
 
   const token = parts[1];
-  if (token !== 'token-admin-123') {
+  const db = readDB();
+  const user = db.users.find(u => u.token === token);
+
+  if (!user || user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied: Admin credentials required.' });
   }
 
+  req.user = user;
   next();
 }
 
-// 1. Authentication Endpoint: Login
+// 1. Authentication Endpoint: Register/Create Account
+app.post('/api/register', (req, res) => {
+  const { username, password, name, surname, question, answer } = req.body;
+
+  if (!username || !password || !name || !surname || !question || !answer) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  const db = readDB();
+  
+  // Check if username exists
+  const exists = db.users.some(u => u.username.toLowerCase() === username.toLowerCase().trim());
+  if (exists) {
+    return res.status(400).json({ error: 'Username is already taken.' });
+  }
+
+  const newUser = {
+    username: username.toLowerCase().trim(),
+    password: password,
+    name: name.trim(),
+    surname: surname.trim(),
+    role: "user",
+    token: "token-user-" + Date.now(),
+    question: question,
+    answer: answer.toLowerCase().trim()
+  };
+
+  db.users.push(newUser);
+  writeDB(db);
+
+  res.status(201).json({
+    token: newUser.token,
+    role: newUser.role,
+    name: newUser.name + " " + newUser.surname
+  });
+});
+
+// 2. Authentication Endpoint: Login
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -98,19 +143,21 @@ app.post('/api/login', (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  const account = ACCOUNTS[username.toLowerCase().trim()];
+  const db = readDB();
+  const account = db.users.find(u => u.username === username.toLowerCase().trim());
+  
   if (account && account.password === password) {
     res.json({
       token: account.token,
       role: account.role,
-      name: account.name
+      name: account.name + " " + account.surname
     });
   } else {
     res.status(400).json({ error: 'Invalid username or password' });
   }
 });
 
-// 2. Authentication Endpoint: Get Security Question for Forgot Password
+// 3. Authentication Endpoint: Forgot Password - Question
 app.post('/api/forgot-password/question', (req, res) => {
   const { username } = req.body;
 
@@ -118,7 +165,9 @@ app.post('/api/forgot-password/question', (req, res) => {
     return res.status(400).json({ error: 'Username is required' });
   }
 
-  const account = ACCOUNTS[username.toLowerCase().trim()];
+  const db = readDB();
+  const account = db.users.find(u => u.username === username.toLowerCase().trim());
+  
   if (!account) {
     return res.status(404).json({ error: 'Username not found' });
   }
@@ -126,7 +175,7 @@ app.post('/api/forgot-password/question', (req, res) => {
   res.json({ question: account.question });
 });
 
-// 3. Authentication Endpoint: Verify Answer and Recover Password
+// 4. Authentication Endpoint: Forgot Password - Answer
 app.post('/api/forgot-password/answer', (req, res) => {
   const { username, answer } = req.body;
 
@@ -134,7 +183,9 @@ app.post('/api/forgot-password/answer', (req, res) => {
     return res.status(400).json({ error: 'Username and answer are required' });
   }
 
-  const account = ACCOUNTS[username.toLowerCase().trim()];
+  const db = readDB();
+  const account = db.users.find(u => u.username === username.toLowerCase().trim());
+  
   if (!account) {
     return res.status(404).json({ error: 'Username not found' });
   }
@@ -146,13 +197,13 @@ app.post('/api/forgot-password/answer', (req, res) => {
   }
 });
 
-// 4. Get all sessions (requires login)
+// 5. Get all sessions (requires login)
 app.get('/api/sessions', verifyToken, (req, res) => {
   const db = readDB();
   res.json(db.sessions);
 });
 
-// 5. Add a new session (Admin only)
+// 6. Add a new session (Admin only)
 app.post('/api/sessions', verifyAdmin, (req, res) => {
   const { name, coach, date, time, capacity } = req.body;
 
@@ -182,7 +233,7 @@ app.post('/api/sessions', verifyAdmin, (req, res) => {
   res.status(201).json(newSession);
 });
 
-// 6. Delete a session (Admin only)
+// 7. Delete a session (Admin only)
 app.delete('/api/sessions/:id', verifyAdmin, (req, res) => {
   const sessionId = parseInt(req.params.id, 10);
   const db = readDB();
@@ -198,14 +249,12 @@ app.delete('/api/sessions/:id', verifyAdmin, (req, res) => {
   res.json({ success: true, message: 'Session deleted successfully' });
 });
 
-// 7. Book a slot in a session (requires login + capacity logic validation)
+// 8. Book a slot in a session (requires login)
 app.post('/api/sessions/:id/book', verifyToken, (req, res) => {
   const sessionId = parseInt(req.params.id, 10);
-  const { name } = req.body;
-
-  if (!name || name.trim() === '') {
-    return res.status(400).json({ error: 'Attendee name is required for booking' });
-  }
+  
+  // Use the name + surname of the authenticated logged-in user context
+  const name = req.user.name + " " + req.user.surname;
 
   const db = readDB();
   const session = db.sessions.find(s => s.id === sessionId);
@@ -214,36 +263,38 @@ app.post('/api/sessions/:id/book', verifyToken, (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  // Require both name and surname (at least two words)
-  const trimmedName = name.trim();
-  const nameParts = trimmedName.split(/\s+/);
-  if (nameParts.length < 2 || nameParts[0] === "" || nameParts[1] === "") {
-    return res.status(400).json({ error: 'Please enter both your name and surname.' });
-  }
-
   // Capacity validation check
   if (session.bookings.length >= session.capacity) {
     return res.status(400).json({ error: 'Class is fully booked! Cannot exceed capacity.' });
   }
 
   // Prevent duplicate booking
-  const alreadyBooked = session.bookings.some(b => b.name.toLowerCase() === trimmedName.toLowerCase());
+  const alreadyBooked = session.bookings.some(b => b.name.toLowerCase() === name.toLowerCase());
   if (alreadyBooked) {
     return res.status(400).json({ error: 'already booked' });
   }
 
   const newBooking = {
     id: Date.now(),
-    name: name.trim()
+    name: name
   };
 
   session.bookings.push(newBooking);
-  writeDB(db);
 
+  // LOG ACTIVITY HISTORY
+  const historyLog = {
+    id: Date.now(),
+    timestamp: new Date().toISOString(),
+    user: name,
+    action: "Booked class: " + session.name
+  };
+  db.history.push(historyLog);
+
+  writeDB(db);
   res.json(session);
 });
 
-// 8. Cancel a booking (requires login)
+// 9. Cancel a booking (requires login)
 app.post('/api/sessions/:id/cancel-booking', verifyToken, (req, res) => {
   const sessionId = parseInt(req.params.id, 10);
   const { bookingId } = req.body;
@@ -260,14 +311,32 @@ app.post('/api/sessions/:id/cancel-booking', verifyToken, (req, res) => {
   }
 
   const originalLength = session.bookings.length;
-  session.bookings = session.bookings.filter(b => b.id !== parseInt(bookingId, 10));
-
-  if (session.bookings.length === originalLength) {
+  
+  // Find booking to extract member name for history logging
+  const bookingObj = session.bookings.find(b => b.id === parseInt(bookingId, 10));
+  if (!bookingObj) {
     return res.status(404).json({ error: 'Booking not found' });
   }
 
+  session.bookings = session.bookings.filter(b => b.id !== parseInt(bookingId, 10));
+
+  // LOG ACTIVITY HISTORY
+  const historyLog = {
+    id: Date.now(),
+    timestamp: new Date().toISOString(),
+    user: bookingObj.name,
+    action: "Cancelled booking in class: " + session.name
+  };
+  db.history.push(historyLog);
+
   writeDB(db);
   res.json(session);
+});
+
+// 10. Get Activity History (Admin only)
+app.get('/api/history', verifyAdmin, (req, res) => {
+  const db = readDB();
+  res.json(db.history);
 });
 
 app.listen(PORT, () => {

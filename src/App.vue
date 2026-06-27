@@ -27,13 +27,13 @@
     <!-- ================= AUTHENTICATION VIEW (Not Logged In) ================= -->
     <div v-if="!token" class="auth-wrapper">
       
-      <!-- 1. LOGIN CARD -->
-      <div v-if="!forgotPasswordMode" class="auth-card">
+      <!-- 1. SIGN IN TAB -->
+      <div v-if="authTab === 'login'" class="auth-card">
         <h2>Member Sign In</h2>
         
         <div class="form-group">
           <label>Username</label>
-          <input v-model="loginUsername" type="text" placeholder="e.g. admin or user" class="input-field" />
+          <input v-model="loginUsername" type="text" placeholder="e.g. user" class="input-field" />
         </div>
         
         <div class="form-group">
@@ -41,7 +41,7 @@
           <input 
             v-model="loginPassword" 
             type="password" 
-            placeholder="e.g. admin123 or user123" 
+            placeholder="e.g. user123" 
             class="input-field" 
             @keyup.enter="login"
           />
@@ -50,12 +50,61 @@
         <button @click="login" class="btn-pink-full">Sign In</button>
         
         <div class="auth-helper">
+          <button @click="authTab = 'signup'" class="btn-link">Don't have an account? Sign Up</button>
+          <br /><br />
           <button @click="openForgotPassword" class="btn-link">Forgot Password?</button>
         </div>
       </div>
 
-      <!-- 2. FORGOT PASSWORD RECOVERY CARD -->
-      <div v-else class="auth-card">
+      <!-- 2. SIGN UP TAB (Create Account) -->
+      <div v-else-if="authTab === 'signup'" class="auth-card">
+        <h2>Create Account</h2>
+        
+        <div class="form-group">
+          <label>Username</label>
+          <input v-model="regUsername" type="text" placeholder="Choose a username" class="input-field" />
+        </div>
+        
+        <div class="form-group">
+          <label>Password</label>
+          <input v-model="regPassword" type="password" placeholder="Create a password" class="input-field" />
+        </div>
+
+        <div class="form-group-row">
+          <div class="form-group flex-1 mr-5">
+            <label>First Name</label>
+            <input v-model="regFirstName" type="text" placeholder="e.g. Lina" class="input-field" />
+          </div>
+          <div class="form-group flex-1">
+            <label>Surname</label>
+            <input v-model="regSurname" type="text" placeholder="e.g. Sidimba" class="input-field" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Security Recovery Question</label>
+          <select v-model="regQuestion" class="input-field select-field">
+            <option value="" disabled selected>Select a question</option>
+            <option value="What is your favorite color?">What is your favorite color?</option>
+            <option value="What is your pet's name?">What is your pet's name?</option>
+            <option value="What was your first gym name?">What was your first gym name?</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Security Recovery Answer</label>
+          <input v-model="regAnswer" type="text" placeholder="Type your answer" class="input-field" />
+        </div>
+        
+        <button @click="register" class="btn-pink-full">Create Account</button>
+        
+        <div class="auth-helper">
+          <button @click="authTab = 'login'" class="btn-link">Already have an account? Sign In</button>
+        </div>
+      </div>
+
+      <!-- 3. FORGOT PASSWORD RECOVERY TAB -->
+      <div v-else-if="authTab === 'forgot'" class="auth-card">
         <h2>Password Recovery</h2>
         
         <!-- Step 1: Input Username -->
@@ -163,22 +212,16 @@
               <p v-else class="spots-full">Class is FULL</p>
             </div>
 
-            <!-- Booking Section (Disappears and toggles to "Booked Class / Cancel Booking" if already booked) -->
-            <div v-if="hasBookedSession(session.id)" class="booked-status-container">
-              <span class="booked-label">Booked Class</span>
-              <button @click="cancelBooking(session.id, getBookingId(session.id))" class="btn-cancel-large">
-                Cancel Booking
+            <!-- Booking Section (Toggles to "Class Booked" and a "Cancel" button if logged-in user is booked) -->
+            <div v-if="isUserBooked(session)" class="booked-status-container">
+              <span class="booked-label">Class Booked</span>
+              <button @click="cancelMyBooking(session)" class="btn-cancel-large">
+                Cancel
               </button>
             </div>
             
-            <div v-else-if="session.bookings.length < session.capacity" class="booking-form">
-              <input 
-                v-model="bookingNames[session.id]" 
-                type="text" 
-                placeholder="Your name" 
-                class="input-field" 
-              />
-              <button @click="bookSession(session.id)" class="btn-pink">Book Class</button>
+            <div v-else-if="session.bookings.length < session.capacity" class="booking-action-bar">
+              <button @click="bookSession(session.id)" class="btn-pink-full">Book Class</button>
             </div>
             
             <div v-else class="spots-full-box">
@@ -245,6 +288,23 @@
             </div>
           </div>
 
+          <!-- Activity History (Admin audit logs) -->
+          <div class="admin-card history-card">
+            <h3>Activity History</h3>
+            
+            <div v-if="history.length === 0" class="no-data">
+              <p>No activity logged yet.</p>
+            </div>
+
+            <div v-else class="history-list">
+              <div v-for="log in sortedHistory" :key="log.id" class="history-item">
+                <span class="history-time">[{{ formatTimestamp(log.timestamp) }}]</span>
+                <span class="history-user">{{ log.user }}</span>
+                <span>{{ log.action }}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -254,11 +314,11 @@
 </template>
 
 <script>
-// Mock accounts for offline fallback
-const OFFLINE_ACCOUNTS = {
-  admin: { password: "admin123", role: "admin", name: "System Admin", token: "token-admin-123", question: "What is our fitness brand name?", answer: "flexzone" },
-  user: { password: "user123", role: "user", name: "Regular Member", token: "token-user-123", question: "What is the primary color of our theme?", answer: "pink" }
-};
+// Mock accounts for offline fallback seed
+const DEFAULT_OFFLINE_USERS = [
+  { username: "admin", password: "admin123", name: "System", surname: "Admin", role: "admin", token: "token-admin-123", question: "What is our fitness brand name?", answer: "flexzone" },
+  { username: "user", password: "user123", name: "Regular", surname: "Member", role: "user", token: "token-user-123", question: "What is the primary color of our theme?", answer: "pink" }
+];
 
 export default {
   data() {
@@ -268,11 +328,16 @@ export default {
       role: sessionStorage.getItem("role") || null,
       name: sessionStorage.getItem("name") || null,
       
-      // Track session-specific user bookings locally to handle UI toggle
-      userBookings: JSON.parse(sessionStorage.getItem("user_bookings")) || {},
+      // Authentication mode tabs: 'login', 'signup', 'forgot'
+      authTab: "login",
 
-      // Connection states
-      offlineMode: false,
+      // Registration inputs
+      regUsername: "",
+      regPassword: "",
+      regFirstName: "",
+      regSurname: "",
+      regQuestion: "",
+      regAnswer: "",
 
       // Login Inputs
       loginUsername: "",
@@ -288,7 +353,8 @@ export default {
       // App states
       currentView: "user",
       sessions: [],
-      bookingNames: {}, // stores booking input name per session ID
+      history: [], // Stores Audit history logs
+      bookingNames: {}, // unused now since booking inputs are removed
       newSession: {
         name: "",
         coach: "",
@@ -297,8 +363,9 @@ export default {
         capacity: ""
       },
       alertMessage: null,
-      alertType: "info", // "success", "error", "info"
+      alertType: "info",
       alertTimeout: null,
+      offlineMode: false,
       apiBase: "http://localhost:3001/api"
     };
   },
@@ -328,6 +395,18 @@ export default {
         return 0;
       }
       return Math.round((totalBooked / totalCapacity) * 100);
+    },
+    // Sort activity logs chronologically (newest first)
+    sortedHistory() {
+      // Beginner friendly sorting copy
+      let historyCopy = [];
+      for (let i = 0; i < this.history.length; i++) {
+        historyCopy.push(this.history[i]);
+      }
+      historyCopy.sort((a, b) => {
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      });
+      return historyCopy;
     }
   },
 
@@ -343,11 +422,16 @@ export default {
           this.offlineMode = false;
           if (this.token) {
             this.fetchSessions();
+            if (this.role === "admin") {
+              this.fetchHistory();
+            }
           }
         })
         .catch(() => {
           this.offlineMode = true;
           this.loadOfflineSessions();
+          this.loadOfflineUsers();
+          this.loadOfflineHistory();
         });
     },
 
@@ -380,27 +464,39 @@ export default {
       return date.toDateString();
     },
 
-    // Check if the current browser session has booked a specific class
-    hasBookedSession(sessionId) {
-      const booking = this.userBookings[sessionId];
-      if (!booking) return false;
+    // Format timestamp nicely for log displays
+    formatTimestamp(isoStr) {
+      if (!isoStr) return "";
+      const date = new Date(isoStr);
+      return date.toLocaleTimeString();
+    },
 
-      // Verify that the booking actually still exists in the session payload
-      const session = this.sessions.find(s => s.id === sessionId);
-      if (!session) return false;
-
+    // Check if the currently logged-in user name is registered in a class bookings
+    isUserBooked(session) {
+      if (!this.name) return false;
       for (let i = 0; i < session.bookings.length; i++) {
-        if (session.bookings[i].id === booking.id) {
+        if (session.bookings[i].name.toLowerCase() === this.name.toLowerCase()) {
           return true;
         }
       }
       return false;
     },
 
-    // Get the booking ID associated with this session's booking
-    getBookingId(sessionId) {
-      const booking = this.userBookings[sessionId];
-      return booking ? booking.id : null;
+    // Cancel the logged-in user's active booking
+    cancelMyBooking(session) {
+      if (!this.name) return;
+      
+      let userBooking = null;
+      for (let i = 0; i < session.bookings.length; i++) {
+        if (session.bookings[i].name.toLowerCase() === this.name.toLowerCase()) {
+          userBooking = session.bookings[i];
+          break;
+        }
+      }
+
+      if (userBooking) {
+        this.cancelBooking(session.id, userBooking.id);
+      }
     },
 
     // ================= OFFLINE STORAGE HELPERS =================
@@ -422,6 +518,134 @@ export default {
       localStorage.setItem("offline_sessions", JSON.stringify(this.sessions));
     },
 
+    loadOfflineUsers() {
+      let data = localStorage.getItem("offline_users");
+      if (!data) {
+        localStorage.setItem("offline_users", JSON.stringify(DEFAULT_OFFLINE_USERS));
+      }
+    },
+
+    loadOfflineHistory() {
+      let data = localStorage.getItem("offline_history");
+      if (!data) {
+        localStorage.setItem("offline_history", JSON.stringify([]));
+        this.history = [];
+      } else {
+        this.history = JSON.parse(data);
+      }
+    },
+
+    saveOfflineHistory() {
+      localStorage.setItem("offline_history", JSON.stringify(this.history));
+    },
+
+    // ================= REGISTER / SIGN UP =================
+    register() {
+      const username = this.regUsername;
+      const password = this.regPassword;
+      const name = this.regFirstName;
+      const surname = this.regSurname;
+      const question = this.regQuestion;
+      const answer = this.regAnswer;
+
+      if (!username || !password || !name || !surname || !question || !answer) {
+        this.showAlert("Please fill in all sign-up inputs.", "error");
+        return;
+      }
+
+      // Offline Registration Fallback
+      if (this.offlineMode) {
+        let users = JSON.parse(localStorage.getItem("offline_users")) || DEFAULT_OFFLINE_USERS;
+        const exists = users.some(u => u.username.toLowerCase() === username.toLowerCase().trim());
+        if (exists) {
+          this.showAlert("Username is already taken.", "error");
+          return;
+        }
+
+        const newUser = {
+          username: username.toLowerCase().trim(),
+          password: password,
+          name: name.trim(),
+          surname: surname.trim(),
+          role: "user",
+          token: "token-user-" + Date.now(),
+          question: question,
+          answer: answer.toLowerCase().trim()
+        };
+
+        users.push(newUser);
+        localStorage.setItem("offline_users", JSON.stringify(users));
+
+        // Auto Login
+        sessionStorage.setItem("token", newUser.token);
+        sessionStorage.setItem("role", newUser.role);
+        sessionStorage.setItem("name", newUser.name + " " + newUser.surname);
+
+        this.token = newUser.token;
+        this.role = newUser.role;
+        this.name = newUser.name + " " + newUser.surname;
+
+        // Reset fields
+        this.regUsername = "";
+        this.regPassword = "";
+        this.regFirstName = "";
+        this.regSurname = "";
+        this.regQuestion = "";
+        this.regAnswer = "";
+
+        this.authTab = "login";
+        this.loadOfflineSessions();
+        this.loadOfflineHistory();
+        this.showAlert("Account created! Welcome, " + this.name + "!", "success");
+        return;
+      }
+
+      // Online Registration
+      fetch(this.apiBase + "/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: username,
+          password: password,
+          name: name,
+          surname: surname,
+          question: question,
+          answer: answer
+        })
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Registration failed");
+            }
+            return data;
+          });
+        })
+        .then(data => {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("role", data.role);
+          sessionStorage.setItem("name", data.name);
+          
+          this.token = data.token;
+          this.role = data.role;
+          this.name = data.name;
+
+          this.regUsername = "";
+          this.regPassword = "";
+          this.regFirstName = "";
+          this.regSurname = "";
+          this.regQuestion = "";
+          this.regAnswer = "";
+
+          this.authTab = "login";
+          this.fetchSessions();
+          this.showAlert("Account created! Welcome, " + this.name + "!", "success");
+        })
+        .catch(err => {
+          this.showAlert(err.message, "error");
+        });
+    },
+
     // ================= AUTHENTICATION METHODS =================
     login() {
       if (!this.loginUsername || !this.loginPassword) {
@@ -430,20 +654,23 @@ export default {
       }
 
       if (this.offlineMode) {
-        const account = OFFLINE_ACCOUNTS[this.loginUsername.toLowerCase().trim()];
+        let users = JSON.parse(localStorage.getItem("offline_users")) || DEFAULT_OFFLINE_USERS;
+        const account = users.find(u => u.username.toLowerCase() === this.loginUsername.toLowerCase().trim());
+        
         if (account && account.password === this.loginPassword) {
           sessionStorage.setItem("token", account.token);
           sessionStorage.setItem("role", account.role);
-          sessionStorage.setItem("name", account.name);
+          sessionStorage.setItem("name", account.name + " " + account.surname);
 
           this.token = account.token;
           this.role = account.role;
-          this.name = account.name;
+          this.name = account.name + " " + account.surname;
 
           this.loginUsername = "";
           this.loginPassword = "";
 
           this.loadOfflineSessions();
+          this.loadOfflineHistory();
           this.showAlert("Welcome back, " + this.name + "!", "success");
         } else {
           this.showAlert("Invalid username or password", "error");
@@ -480,6 +707,9 @@ export default {
           this.loginPassword = "";
 
           this.fetchSessions();
+          if (this.role === "admin") {
+            this.fetchHistory();
+          }
           this.showAlert("Welcome back, " + this.name + "!", "success");
         })
         .catch(err => {
@@ -493,13 +723,14 @@ export default {
       this.role = null;
       this.name = null;
       this.sessions = [];
-      this.userBookings = {};
+      this.history = [];
+      this.authTab = "login";
       this.currentView = "user";
       this.showAlert("Logged out successfully.", "info");
     },
 
     openForgotPassword() {
-      this.forgotPasswordMode = true;
+      this.authTab = "forgot";
       this.forgotUsername = "";
       this.forgotQuestion = null;
       this.forgotAnswer = "";
@@ -507,7 +738,7 @@ export default {
     },
 
     closeForgotPassword() {
-      this.forgotPasswordMode = false;
+      this.authTab = "login";
     },
 
     getRecoveryQuestion() {
@@ -517,7 +748,8 @@ export default {
       }
 
       if (this.offlineMode) {
-        const account = OFFLINE_ACCOUNTS[this.forgotUsername.toLowerCase().trim()];
+        let users = JSON.parse(localStorage.getItem("offline_users")) || DEFAULT_OFFLINE_USERS;
+        const account = users.find(u => u.username.toLowerCase() === this.forgotUsername.toLowerCase().trim());
         if (!account) {
           this.showAlert("Username not found", "error");
         } else {
@@ -556,7 +788,8 @@ export default {
       }
 
       if (this.offlineMode) {
-        const account = OFFLINE_ACCOUNTS[this.forgotUsername.toLowerCase().trim()];
+        let users = JSON.parse(localStorage.getItem("offline_users")) || DEFAULT_OFFLINE_USERS;
+        const account = users.find(u => u.username.toLowerCase() === this.forgotUsername.toLowerCase().trim());
         if (account && account.answer === this.forgotAnswer.toLowerCase().trim()) {
           this.recoveredPassword = account.password;
         } else {
@@ -612,22 +845,32 @@ export default {
         });
     },
 
+    // Fetch Admin activity logs
+    fetchHistory() {
+      fetch(this.apiBase + "/history", {
+        headers: this.authHeaders()
+      })
+        .then(response => {
+          return response.json().then(data => {
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to load history logs");
+            }
+            return data;
+          });
+        })
+        .then(data => {
+          this.history = data;
+        })
+        .catch(err => {
+          console.error(err);
+        });
+    },
+
     bookSession(sessionId) {
-      const name = this.bookingNames[sessionId];
-      if (!name || name.trim() === "") {
-        this.showAlert("Please enter your name.", "error");
-        return;
-      }
-
-      const trimmed = name.trim();
-      const nameParts = trimmed.split(/\s+/);
-      if (nameParts.length < 2 || nameParts[0] === "" || nameParts[1] === "") {
-        this.showAlert("Please enter both your name and surname.", "error");
-        return;
-      }
-
       const session = this.sessions.find(s => s.id === sessionId);
       if (!session) return;
+
+      const userNameToBook = this.name;
 
       // Offline Booking Logic
       if (this.offlineMode) {
@@ -636,30 +879,34 @@ export default {
           return;
         }
 
-        const duplicate = session.bookings.some(b => b.name.toLowerCase() === trimmed.toLowerCase());
+        const duplicate = session.bookings.some(b => b.name.toLowerCase() === userNameToBook.toLowerCase());
         if (duplicate) {
           this.showAlert("already booked", "error");
           return;
         }
 
         const newBookingId = Date.now();
-        session.bookings.push({ id: newBookingId, name: trimmed });
+        session.bookings.push({ id: newBookingId, name: userNameToBook });
         this.saveOfflineSessions();
         
-        // Track the booking for UI toggle
-        this.userBookings[sessionId] = { id: newBookingId, name: trimmed };
-        sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
+        // Log Activity to History
+        const log = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          user: userNameToBook,
+          action: "Booked class: " + session.name
+        };
+        this.history.push(log);
+        this.saveOfflineHistory();
 
-        this.bookingNames[sessionId] = "";
-        this.showAlert("Success! Booked for " + trimmed + " in " + session.name + " class.", "success");
+        this.showAlert("Success! Booked for " + userNameToBook + " in " + session.name + " class.", "success");
         return;
       }
 
       // Online Booking
       fetch(this.apiBase + "/sessions/" + sessionId + "/book", {
         method: "POST",
-        headers: this.authHeaders(),
-        body: JSON.stringify({ name: trimmed })
+        headers: this.authHeaders()
       })
         .then(response => {
           return response.json().then(data => {
@@ -670,16 +917,8 @@ export default {
           });
         })
         .then(updatedSession => {
-          // Find the new booking in the list
-          const latestBooking = updatedSession.bookings.find(b => b.name.toLowerCase() === trimmed.toLowerCase());
-          
-          // Track the booking locally
-          this.userBookings[sessionId] = { id: latestBooking.id, name: trimmed };
-          sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
-
-          this.bookingNames[sessionId] = "";
           this.fetchSessions();
-          this.showAlert("Success! Booked for " + trimmed + " in " + session.name + " class.", "success");
+          this.showAlert("Success! Booked for " + userNameToBook + " in " + session.name + " class.", "success");
         })
         .catch(err => {
           this.showAlert(err.message, "error");
@@ -692,14 +931,23 @@ export default {
 
       // Offline Cancel Logic
       if (this.offlineMode) {
-        session.bookings = session.bookings.filter(b => b.id !== bookingId);
-        this.saveOfflineSessions();
-        
-        // Clear local tracking
-        delete this.userBookings[sessionId];
-        sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
+        const bookingObj = session.bookings.find(b => b.id === bookingId);
+        if (bookingObj) {
+          session.bookings = session.bookings.filter(b => b.id !== bookingId);
+          this.saveOfflineSessions();
+          
+          // Log Activity to History
+          const log = {
+            id: Date.now(),
+            timestamp: new Date().toISOString(),
+            user: bookingObj.name,
+            action: "Cancelled booking in class: " + session.name
+          };
+          this.history.push(log);
+          this.saveOfflineHistory();
 
-        this.showAlert("Booking cancelled successfully.", "info");
+          this.showAlert("Booking cancelled successfully.", "info");
+        }
         return;
       }
 
@@ -718,11 +966,8 @@ export default {
           });
         })
         .then(updatedSession => {
-          // Clear local tracking
-          delete this.userBookings[sessionId];
-          sessionStorage.setItem("user_bookings", JSON.stringify(this.userBookings));
-
           this.fetchSessions();
+          this.fetchHistory(); // Refresh logs
           this.showAlert("Booking cancelled successfully.", "info");
         })
         .catch(err => {
@@ -853,13 +1098,13 @@ body {
 }
 
 .container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 20px auto;
   padding: 20px;
   background-color: black;
 }
 
-/* Calendar & Clock Input Indicators Fix (WebKit browser dark-mode visibility) */
+/* Calendar & Clock Input Indicators Fix */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
@@ -922,7 +1167,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: black;
 }
 
-/* Auth Cards (Login & Forgot Password) */
+/* Auth Cards (Login, Register & Forgot Password) */
 .auth-wrapper {
   display: flex;
   justify-content: center;
@@ -931,7 +1176,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .auth-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   border: 2px solid pink;
   padding: 30px 20px;
   background-color: black;
@@ -1161,18 +1406,31 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* Forms and Inputs */
-.booking-form {
+.form-group-row {
   display: flex;
-  margin-bottom: 15px;
+  justify-content: space-between;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.mr-5 {
+  margin-right: 10px;
 }
 
 .input-field {
-  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px;
   border: 2px solid pink;
   background-color: black;
   color: white;
-  margin-right: 10px;
+  margin-bottom: 15px;
+}
+
+.select-field {
+  color: pink;
 }
 
 .input-field::placeholder {
@@ -1218,10 +1476,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 10px;
 }
 
-/* Admin Panel Layout */
+/* Admin Panel Layout (3-Column Grid) */
 .admin-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1.2fr;
   gap: 20px;
 }
 
@@ -1298,5 +1556,36 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .trainee-name {
   color: white;
+}
+
+/* Admin Activity History styles */
+.history-card {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-item {
+  font-size: 11px;
+  border-bottom: 1px solid gray;
+  padding: 8px 0;
+  color: lightgray;
+  line-height: 1.4;
+}
+
+.history-time {
+  color: pink;
+  font-weight: bold;
+  margin-right: 6px;
+}
+
+.history-user {
+  color: hotpink;
+  font-weight: bold;
+  margin-right: 6px;
 }
 </style>
