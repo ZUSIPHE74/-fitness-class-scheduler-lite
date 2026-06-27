@@ -151,24 +151,6 @@
 
     <!-- ================= SCHEDULER APPLICATION VIEW (Logged In) ================= -->
     <div v-else>
-      
-      <!-- Tab Navigation (Only Admins can toggle between Views; Admin tab appears first) -->
-      <div v-if="role === 'admin'" class="tabs">
-        <button 
-          @click="currentView = 'admin'" 
-          :class="{ active: currentView === 'admin' }"
-          class="tab-button"
-        >
-          Admin Control Center
-        </button>
-        <button 
-          @click="currentView = 'user'" 
-          :class="{ active: currentView === 'user' }"
-          class="tab-button"
-        >
-          User Booking Portal
-        </button>
-      </div>
 
       <!-- Stats Panel (Only visible on the Admin Control Center tab) -->
       <div v-if="currentView === 'admin' && role === 'admin'" class="stats-panel">
@@ -196,14 +178,14 @@
           </div>
 
           <div v-else class="session-list">
-            <div v-for="session in sessions" :key="session.id" class="session-card">
-              <div class="card-top">
-                <span class="class-time">{{ session.time }}</span>
-                <span class="class-date">{{ formatDate(session.date) }}</span>
-              </div>
+              <div v-for="session in sessions" :key="session.id" class="session-card">
+                <div class="card-top">
+                  <span class="class-time">{{ session.startTime }} - {{ session.endTime }} ({{ session.duration }} mins)</span>
+                  <span class="class-date">{{ formatDate(session.date) }}</span>
+                </div>
 
-              <h3 class="class-title">{{ session.name }}</h3>
-              <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
+                <h3 class="class-title">{{ session.name }}</h3>
+                <p class="class-coach">Instructor: <strong>{{ session.coach }}</strong></p>
 
               <div class="spots-info">
                 <p>Booked: {{ session.bookings.length }} / {{ session.capacity }} seats</p>
@@ -246,15 +228,27 @@
             </div>
             <div class="form-group">
               <label>Instructor</label>
-              <input v-model="newSession.coach" type="text" placeholder="e.g. Coach Sarah" class="input-field" />
+              <select v-model="newSession.coach" class="input-field">
+                <option v-for="inst in instructors" :key="inst.id" :value="inst.name">
+                  {{ inst.name }} ({{ inst.specialty }})
+                </option>
+              </select>
             </div>
             <div class="form-group">
               <label>Date</label>
               <input v-model="newSession.date" type="date" class="input-field" />
             </div>
             <div class="form-group">
-              <label>Time</label>
-              <input v-model="newSession.time" type="time" class="input-field" />
+              <label>Start Time</label>
+              <input v-model="newSession.startTime" type="time" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>End Time</label>
+              <input v-model="newSession.endTime" type="time" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>Duration (minutes)</label>
+              <input v-model="newSession.duration" type="number" placeholder="e.g. 60" class="input-field" />
             </div>
             <div class="form-group">
               <label>Capacity</label>
@@ -275,7 +269,7 @@
               <div v-for="session in sessions" :key="session.id" class="manage-item">
                 <div>
                   <strong>{{ session.name }}</strong> (Cap: {{ session.capacity }})<br />
-                  <span class="manage-meta">{{ session.coach }} | {{ formatDate(session.date) }} at {{ session.time }}</span>
+                  <span class="manage-meta">{{ session.coach }} | {{ formatDate(session.date) }} | {{ session.startTime }}-{{ session.endTime }} ({{ session.duration }} mins)</span>
                   
                   <!-- Registered Trainees (Shown ONLY on Admin Side) -->
                   <div v-if="session.bookings.length > 0" class="admin-trainees">
@@ -285,24 +279,63 @@
                     </span>
                   </div>
                 </div>
-                <button @click="deleteSession(session.id)" class="btn-delete">Delete</button>
+                <div class="admin-actions-bar" style="margin-top: 10px;">
+                  <button @click="completeSession(session.id)" class="btn-complete-small">Complete</button>
+                  <button @click="cancelSession(session.id)" class="btn-cancel-small">Cancel</button>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Activity History (Admin audit logs: visible ONLY on Admin side) -->
-          <div class="admin-card history-card">
-            <h3>Activity History</h3>
+          <!-- Instructor Clock-In Portal -->
+          <div class="admin-card">
+            <h3>Instructor Clock-In Portal</h3>
             
-            <div v-if="history.length === 0" class="no-data">
-              <p>No activity logged yet.</p>
+            <div class="add-instructor-form" style="margin-bottom: 15px;">
+              <div class="form-group-inline">
+                <input v-model="newInstructorName" type="text" placeholder="Name" class="input-field-small" />
+                <input v-model="newInstructorSpecialty" type="text" placeholder="Specialty" class="input-field-small" />
+                <button @click="addInstructor" class="btn-pink-small">Add</button>
+              </div>
             </div>
 
-            <div v-else class="history-list">
-              <div v-for="log in sortedHistory" :key="log.id" class="history-item">
-                <span class="history-time">[{{ formatTimestamp(log.timestamp) }}]</span>
-                <span class="history-user">{{ log.user }}</span>
-                <span>{{ log.action }}</span>
+            <div class="instructor-list">
+              <div v-for="inst in instructors" :key="inst.id" class="instructor-row">
+                <div class="instructor-info">
+                  <span class="status-dot" :class="{ 'clocked-in': inst.clockedIn }"></span>
+                  <strong>{{ inst.name }}</strong> ({{ inst.specialty }})
+                  <div class="clock-time-meta">
+                    <span v-if="inst.clockedIn">Clocked in: {{ formatClockTime(inst.lastClockIn) }}</span>
+                    <span v-else-if="inst.lastClockOut">Last clocked out: {{ formatClockTime(inst.lastClockOut) }}</span>
+                    <span v-else>Never clocked in</span>
+                  </div>
+                </div>
+                <div class="clock-actions">
+                  <button v-if="!inst.clockedIn" @click="clockIn(inst.id)" class="btn-clock-in">Clock In</button>
+                  <button v-else @click="clockOut(inst.id)" class="btn-clock-out">Clock Out</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Class Completion History -->
+          <div class="admin-card">
+            <h3>Class Completion History</h3>
+            
+            <div v-if="sessionHistory.length === 0" class="no-data">
+              <p>No classes completed or cancelled yet.</p>
+            </div>
+
+            <div v-else class="session-history-list" style="max-height: 400px; overflow-y: auto;">
+              <div v-for="item in sortedSessionHistory" :key="item.id" class="history-item">
+                <span class="history-time">[{{ formatDate(item.date) }}]</span>
+                <strong :class="{ 'text-green': item.status === 'Completed', 'text-red': item.status === 'Cancelled' }">
+                  [{{ item.status }}]
+                </strong>
+                <strong>{{ item.name }}</strong> led by <strong>{{ item.coach }}</strong>
+                <div class="history-meta-sub">
+                  Time: {{ item.startTime }} - {{ item.endTime }} ({{ item.duration }} mins)
+                </div>
               </div>
             </div>
           </div>
@@ -356,12 +389,18 @@ export default {
       currentView: "user",
       sessions: [],
       history: [], // Stores Audit history logs
+      instructors: [],
+      sessionHistory: [],
+      newInstructorName: "",
+      newInstructorSpecialty: "",
       bookingNames: {}, // unused now since booking inputs are removed
       newSession: {
         name: "",
         coach: "",
         date: "",
-        time: "",
+        startTime: "",
+        endTime: "",
+        duration: 60,
         capacity: ""
       },
       alertMessage: null,
@@ -409,6 +448,17 @@ export default {
         return new Date(b.timestamp) - new Date(a.timestamp);
       });
       return historyCopy;
+    },
+    // Sort session execution history (newest first)
+    sortedSessionHistory() {
+      let copy = [];
+      for (let i = 0; i < this.sessionHistory.length; i++) {
+        copy.push(this.sessionHistory[i]);
+      }
+      copy.sort((a, b) => {
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      });
+      return copy;
     }
   },
 
@@ -426,6 +476,8 @@ export default {
             this.fetchSessions();
             if (this.role === "admin") {
               this.fetchHistory();
+              this.fetchInstructors();
+              this.fetchSessionHistory();
             }
           }
         })
@@ -973,6 +1025,8 @@ export default {
           this.fetchSessions();
           if (this.role === "admin") {
             this.fetchHistory();
+            this.fetchInstructors();
+            this.fetchSessionHistory();
           }
           this.showAlert("Booking cancelled successfully.", "info");
         })
@@ -985,15 +1039,18 @@ export default {
       const name = this.newSession.name;
       const coach = this.newSession.coach;
       const date = this.newSession.date;
-      const time = this.newSession.time;
+      const startTime = this.newSession.startTime;
+      const endTime = this.newSession.endTime;
+      const duration = this.newSession.duration;
       const capacity = this.newSession.capacity;
 
-      if (!name || !coach || !date || !time || !capacity) {
+      if (!name || !coach || !date || !startTime || !endTime || !capacity) {
         this.showAlert("Please fill in all inputs.", "error");
         return;
       }
 
       const numericCapacity = parseInt(capacity, 10);
+      const numericDuration = parseInt(duration, 10) || 60;
 
       // Offline Creation
       if (this.offlineMode) {
@@ -1002,7 +1059,9 @@ export default {
           name: name,
           coach: coach,
           date: date,
-          time: time,
+          startTime: startTime,
+          endTime: endTime,
+          duration: numericDuration,
           capacity: numericCapacity,
           bookings: []
         };
@@ -1010,9 +1069,11 @@ export default {
         this.saveOfflineSessions();
 
         this.newSession.name = "";
-        this.newSession.coach = "";
+        this.newSession.coach = this.instructors.length > 0 ? this.instructors[0].name : "";
         this.newSession.date = "";
-        this.newSession.time = "";
+        this.newSession.startTime = "";
+        this.newSession.endTime = "";
+        this.newSession.duration = 60;
         this.newSession.capacity = "";
 
         this.showAlert("Class scheduled successfully!", "success");
@@ -1027,7 +1088,9 @@ export default {
           name: name,
           coach: coach,
           date: date,
-          time: time,
+          startTime: startTime,
+          endTime: endTime,
+          duration: numericDuration,
           capacity: capacity
         })
       })
@@ -1041,9 +1104,11 @@ export default {
         })
         .then(createdSession => {
           this.newSession.name = "";
-          this.newSession.coach = "";
+          this.newSession.coach = this.instructors.length > 0 ? this.instructors[0].name : "";
           this.newSession.date = "";
-          this.newSession.time = "";
+          this.newSession.startTime = "";
+          this.newSession.endTime = "";
+          this.newSession.duration = 60;
           this.newSession.capacity = "";
           
           this.fetchSessions();
@@ -1054,40 +1119,249 @@ export default {
         });
     },
 
-    deleteSession(sessionId) {
-      const confirmDelete = confirm("Are you sure you want to delete this class?");
-      if (!confirmDelete) {
-        return;
-      }
-
-      // Offline Deletion
+    completeSession(sessionId) {
       if (this.offlineMode) {
-        this.sessions = this.sessions.filter(s => s.id !== sessionId);
-        this.saveOfflineSessions();
-        this.showAlert("Class deleted successfully.", "info");
+        const idx = this.sessions.findIndex(s => s.id === sessionId);
+        if (idx !== -1) {
+          const session = this.sessions[idx];
+          const historyItem = {
+            id: Date.now(),
+            name: session.name,
+            coach: session.coach,
+            date: session.date,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            duration: session.duration,
+            status: "Completed",
+            timestamp: new Date().toISOString()
+          };
+          this.sessionHistory.push(historyItem);
+          localStorage.setItem("offline_session_history", JSON.stringify(this.sessionHistory));
+          this.sessions.splice(idx, 1);
+          this.saveOfflineSessions();
+          this.showAlert("Class marked as Completed.", "success");
+        }
         return;
       }
 
-      // Online Deletion
-      fetch(this.apiBase + "/sessions/" + sessionId, {
-        method: "DELETE",
+      fetch(this.apiBase + "/sessions/" + sessionId + "/complete", {
+        method: "POST",
         headers: this.authHeaders()
       })
-        .then(response => {
-          return response.json().then(data => {
-            if (!response.ok) {
-              throw new Error(data.error || "Failed to delete");
-            }
-            return data;
-          });
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to complete session");
+          return res.json();
+        })
+        .then(() => {
+          this.fetchSessions();
+          this.fetchSessionHistory();
+          this.showAlert("Class marked as Completed.", "success");
+        })
+        .catch(err => this.showAlert(err.message, "error"));
+    },
+
+    cancelSession(sessionId) {
+      const confirmCancel = confirm("Are you sure you want to cancel this class session?");
+      if (!confirmCancel) return;
+
+      if (this.offlineMode) {
+        const idx = this.sessions.findIndex(s => s.id === sessionId);
+        if (idx !== -1) {
+          const session = this.sessions[idx];
+          const historyItem = {
+            id: Date.now(),
+            name: session.name,
+            coach: session.coach,
+            date: session.date,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            duration: session.duration,
+            status: "Cancelled",
+            timestamp: new Date().toISOString()
+          };
+          this.sessionHistory.push(historyItem);
+          localStorage.setItem("offline_session_history", JSON.stringify(this.sessionHistory));
+          this.sessions.splice(idx, 1);
+          this.saveOfflineSessions();
+          this.showAlert("Class marked as Cancelled.", "info");
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/sessions/" + sessionId + "/cancel-session", {
+        method: "POST",
+        headers: this.authHeaders()
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to cancel session");
+          return res.json();
+        })
+        .then(() => {
+          this.fetchSessions();
+          this.fetchSessionHistory();
+          this.showAlert("Class marked as Cancelled.", "info");
+        })
+        .catch(err => this.showAlert(err.message, "error"));
+    },
+
+    fetchInstructors() {
+      if (this.offlineMode) {
+        const data = localStorage.getItem("offline_instructors");
+        if (data) {
+          this.instructors = JSON.parse(data);
+        } else {
+          this.instructors = [
+            { id: 1, name: "Coach Sarah", specialty: "Yoga", clockedIn: false, lastClockIn: null, lastClockOut: null },
+            { id: 2, name: "Coach Mike", specialty: "HIIT", clockedIn: false, lastClockIn: null, lastClockOut: null },
+            { id: 3, name: "Coach Linda", specialty: "Pilates", clockedIn: false, lastClockIn: null, lastClockOut: null }
+          ];
+          localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/instructors", {
+        headers: this.authHeaders()
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to load instructors");
+          return res.json();
         })
         .then(data => {
-          this.fetchSessions();
-          this.showAlert("Class deleted successfully.", "info");
+          this.instructors = data;
+          if (this.instructors.length > 0 && !this.newSession.coach) {
+            this.newSession.coach = this.instructors[0].name;
+          }
         })
-        .catch(err => {
-          this.showAlert(err.message, "error");
-        });
+        .catch(err => console.error(err));
+    },
+
+    addInstructor() {
+      const name = this.newInstructorName.trim();
+      const specialty = this.newInstructorSpecialty.trim();
+      if (!name || !specialty) {
+        this.showAlert("Name and specialty are required.", "error");
+        return;
+      }
+
+      if (this.offlineMode) {
+        const newInst = {
+          id: Date.now(),
+          name,
+          specialty,
+          clockedIn: false,
+          lastClockIn: null,
+          lastClockOut: null
+        };
+        this.instructors.push(newInst);
+        localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+        this.newInstructorName = "";
+        this.newInstructorSpecialty = "";
+        this.showAlert("Instructor added successfully.", "success");
+        return;
+      }
+
+      fetch(this.apiBase + "/instructors", {
+        method: "POST",
+        headers: this.authHeaders(),
+        body: JSON.stringify({ name, specialty })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to add instructor");
+          return res.json();
+        })
+        .then(() => {
+          this.newInstructorName = "";
+          this.newInstructorSpecialty = "";
+          this.fetchInstructors();
+          this.showAlert("Instructor added successfully.", "success");
+        })
+        .catch(err => this.showAlert(err.message, "error"));
+    },
+
+    clockIn(instructorId) {
+      if (this.offlineMode) {
+        const inst = this.instructors.find(i => i.id === instructorId);
+        if (inst) {
+          inst.clockedIn = true;
+          inst.lastClockIn = new Date().toISOString();
+          localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+          this.showAlert(inst.name + " clocked in.", "success");
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/instructors/" + instructorId + "/clock-in", {
+        method: "POST",
+        headers: this.authHeaders()
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Clock in failed");
+          return res.json();
+        })
+        .then(() => {
+          this.fetchInstructors();
+          this.showAlert("Instructor clocked in.", "success");
+        })
+        .catch(err => this.showAlert(err.message, "error"));
+    },
+
+    clockOut(instructorId) {
+      if (this.offlineMode) {
+        const inst = this.instructors.find(i => i.id === instructorId);
+        if (inst) {
+          inst.clockedIn = false;
+          inst.lastClockOut = new Date().toISOString();
+          localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+          this.showAlert(inst.name + " clocked out.", "info");
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/instructors/" + instructorId + "/clock-out", {
+        method: "POST",
+        headers: this.authHeaders()
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Clock out failed");
+          return res.json();
+        })
+        .then(() => {
+          this.fetchInstructors();
+          this.showAlert("Instructor clocked out.", "info");
+        })
+        .catch(err => this.showAlert(err.message, "error"));
+    },
+
+    fetchSessionHistory() {
+      if (this.offlineMode) {
+        const data = localStorage.getItem("offline_session_history");
+        if (data) {
+          this.sessionHistory = JSON.parse(data);
+        } else {
+          this.sessionHistory = [];
+          localStorage.setItem("offline_session_history", JSON.stringify([]));
+        }
+        return;
+      }
+
+      fetch(this.apiBase + "/session-history", {
+        headers: this.authHeaders()
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to load session history");
+          return res.json();
+        })
+        .then(data => {
+          this.sessionHistory = data;
+        })
+        .catch(err => console.error(err));
+    },
+
+    formatClockTime(isoStr) {
+      if (!isoStr) return "";
+      const date = new Date(isoStr);
+      return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
     }
   }
 };
@@ -1482,10 +1756,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 10px;
 }
 
-/* Admin Panel Layout (3-Column Grid) */
+/* Admin Panel Layout (2-Column Grid) */
 .admin-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
@@ -1516,8 +1790,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .manage-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   padding: 10px 0;
   border-bottom: 1px solid pink;
 }
@@ -1608,6 +1881,108 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 20px;
+}
+
+/* Instructor Clock-In Portal & Class Completion ledger styles */
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: red;
+  margin-right: 8px;
+}
+
+.status-dot.clocked-in {
+  background-color: green;
+}
+
+.instructor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid pink;
+  padding: 10px 0;
+}
+
+.clock-time-meta {
+  font-size: 11px;
+  color: lightgray;
+  margin-top: 4px;
+}
+
+.btn-clock-in {
+  background-color: green;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-clock-out {
+  background-color: orange;
+  color: black;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-complete-small {
+  background-color: green;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  margin-right: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-cancel-small {
+  background-color: red;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.form-group-inline {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.input-field-small {
+  flex: 1;
+  background-color: black;
+  color: white;
+  border: 1px solid pink;
+  padding: 8px;
+}
+
+.btn-pink-small {
+  background-color: hotpink;
+  color: black;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.text-green {
+  color: green;
+}
+
+.text-red {
+  color: red;
+}
+
+.history-meta-sub {
+  font-size: 11px;
+  color: gray;
+  margin-top: 2px;
 }
 
 /* Responsive grid layout */

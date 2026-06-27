@@ -205,9 +205,9 @@ app.get('/api/sessions', verifyToken, (req, res) => {
 
 // 6. Add a new session (Admin only)
 app.post('/api/sessions', verifyAdmin, (req, res) => {
-  const { name, coach, date, time, capacity } = req.body;
+  const { name, coach, date, startTime, endTime, duration, capacity } = req.body;
 
-  if (!name || !coach || !date || !time || !capacity) {
+  if (!name || !coach || !date || !startTime || !endTime || !capacity) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
@@ -216,13 +216,17 @@ app.post('/api/sessions', verifyAdmin, (req, res) => {
     return res.status(400).json({ error: 'Capacity must be a positive number' });
   }
 
+  const numericDuration = parseInt(duration, 10) || 60;
+
   const db = readDB();
   const newSession = {
     id: Date.now(),
     name,
     coach,
     date,
-    time,
+    startTime,
+    endTime,
+    duration: numericDuration,
     capacity: numericCapacity,
     bookings: []
   };
@@ -337,6 +341,136 @@ app.post('/api/sessions/:id/cancel-booking', verifyToken, (req, res) => {
 app.get('/api/history', verifyAdmin, (req, res) => {
   const db = readDB();
   res.json(db.history);
+});
+
+// 11. Complete a Session (Admin only)
+app.post('/api/sessions/:id/complete', verifyAdmin, (req, res) => {
+  const sessionId = parseInt(req.params.id, 10);
+  const db = readDB();
+  const sessionIndex = db.sessions.findIndex(s => s.id === sessionId);
+
+  if (sessionIndex === -1) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  const session = db.sessions[sessionIndex];
+
+  // Log to session history
+  const historyItem = {
+    id: Date.now(),
+    name: session.name,
+    coach: session.coach,
+    date: session.date,
+    startTime: session.startTime,
+    endTime: session.endTime,
+    duration: session.duration,
+    status: 'Completed',
+    timestamp: new Date().toISOString()
+  };
+
+  db.sessionHistory.push(historyItem);
+  db.sessions.splice(sessionIndex, 1);
+  writeDB(db);
+
+  res.json({ success: true, historyItem });
+});
+
+// 12. Cancel a Session (Admin only)
+app.post('/api/sessions/:id/cancel-session', verifyAdmin, (req, res) => {
+  const sessionId = parseInt(req.params.id, 10);
+  const db = readDB();
+  const sessionIndex = db.sessions.findIndex(s => s.id === sessionId);
+
+  if (sessionIndex === -1) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  const session = db.sessions[sessionIndex];
+
+  // Log to session history
+  const historyItem = {
+    id: Date.now(),
+    name: session.name,
+    coach: session.coach,
+    date: session.date,
+    startTime: session.startTime,
+    endTime: session.endTime,
+    duration: session.duration,
+    status: 'Cancelled',
+    timestamp: new Date().toISOString()
+  };
+
+  db.sessionHistory.push(historyItem);
+  db.sessions.splice(sessionIndex, 1);
+  writeDB(db);
+
+  res.json({ success: true, historyItem });
+});
+
+// 13. Get Instructors List (Admin only)
+app.get('/api/instructors', verifyAdmin, (req, res) => {
+  const db = readDB();
+  res.json(db.instructors || []);
+});
+
+// 14. Add new Instructor (Admin only)
+app.post('/api/instructors', verifyAdmin, (req, res) => {
+  const { name, specialty } = req.body;
+  if (!name || !specialty) {
+    return res.status(400).json({ error: 'Name and specialty are required' });
+  }
+
+  const db = readDB();
+  const newInstructor = {
+    id: Date.now(),
+    name,
+    specialty,
+    clockedIn: false,
+    lastClockIn: null,
+    lastClockOut: null
+  };
+
+  db.instructors.push(newInstructor);
+  writeDB(db);
+  res.status(201).json(newInstructor);
+});
+
+// 15. Clock In Instructor (Admin only)
+app.post('/api/instructors/:id/clock-in', verifyAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const db = readDB();
+  const instructor = db.instructors.find(i => i.id === id);
+
+  if (!instructor) {
+    return res.status(404).json({ error: 'Instructor not found' });
+  }
+
+  instructor.clockedIn = true;
+  instructor.lastClockIn = new Date().toISOString();
+  writeDB(db);
+  res.json(instructor);
+});
+
+// 16. Clock Out Instructor (Admin only)
+app.post('/api/instructors/:id/clock-out', verifyAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const db = readDB();
+  const instructor = db.instructors.find(i => i.id === id);
+
+  if (!instructor) {
+    return res.status(404).json({ error: 'Instructor not found' });
+  }
+
+  instructor.clockedIn = false;
+  instructor.lastClockOut = new Date().toISOString();
+  writeDB(db);
+  res.json(instructor);
+});
+
+// 17. Get Session Execution History (Admin only)
+app.get('/api/session-history', verifyAdmin, (req, res) => {
+  const db = readDB();
+  res.json(db.sessionHistory || []);
 });
 
 app.listen(PORT, () => {

@@ -3,27 +3,13 @@
     {
       "id": 1719220000000,
       "name": "Yoga Flow",
-      "coach": "Sarah Jenkins",
+      "coach": "Coach Sarah",
       "date": "2026-07-01",
-      "time": "08:30",
+      "startTime": "08:30",
+      "endTime": "09:30",
+      "duration": 60,
       "capacity": 15,
       "bookings": [
-        {
-          "id": 1782564609364,
-          "name": "Lina"
-        },
-        {
-          "id": 1782564793140,
-          "name": "Lina Z"
-        },
-        {
-          "id": 1782564811788,
-          "name": "Pinkn"
-        },
-        {
-          "id": 1782564818995,
-          "name": "fc"
-        },
         {
           "id": 1782569372791,
           "name": "Melody Andi"
@@ -33,37 +19,29 @@
     {
       "id": 1719220000001,
       "name": "HIIT Cardio Strength",
-      "coach": "Mike Peterson",
+      "coach": "Coach Mike",
       "date": "2026-07-02",
-      "time": "17:00",
+      "startTime": "17:00",
+      "endTime": "18:00",
+      "duration": 60,
       "capacity": 20,
       "bookings": [
         {
-          "id": 1782564619409,
-          "name": "Lina"
-        },
-        {
           "id": 1782566810744,
           "name": "Regular Member"
-        },
-        {
-          "id": 1782569733370,
-          "name": "Melody Andi"
         }
       ]
     },
     {
       "id": 1782565042281,
       "name": "Pilates",
-      "coach": "Instructor Linda",
+      "coach": "Coach Linda",
       "date": "2026-06-29",
-      "time": "09:30",
+      "startTime": "09:30",
+      "endTime": "10:30",
+      "duration": 60,
       "capacity": 15,
       "bookings": [
-        {
-          "id": 1782565079594,
-          "name": "Lina"
-        },
         {
           "id": 1782566815058,
           "name": "Regular Member"
@@ -169,6 +147,21 @@
       "timestamp": "2026-06-27T14:15:33.370Z",
       "user": "Melody Andi",
       "action": "Booked class: HIIT Cardio Strength"
+    },
+    {
+      "id": 1782569911458,
+      "timestamp": "2026-06-27T14:18:31.458Z",
+      "user": "Melody Andi",
+      "action": "Cancelled booking in class: HIIT Cardio Strength"
     }
+  ],
+  "instructors": [
+    { "id": 1, "name": "Coach Sarah", "specialty": "Yoga", "clockedIn": false, "lastClockIn": null, "lastClockOut": null },
+    { "id": 2, "name": "Coach Mike", "specialty": "HIIT", "clockedIn": false, "lastClockIn": null, "lastClockOut": null },
+    { "id": 3, "name": "Coach Linda", "specialty": "Pilates", "clockedIn": false, "lastClockIn": null, "lastClockOut": null }
+  ],
+  "sessionHistory": [
+    { "id": 101, "name": "Yoga Intro", "coach": "Coach Sarah", "date": "2026-06-25", "startTime": "08:00", "endTime": "09:00", "duration": 60, "status": "Completed", "timestamp": "2026-06-25T09:00:00.000Z" },
+    { "id": 102, "name": "Morning HIIT", "coach": "Coach Mike", "date": "2026-06-26", "startTime": "07:00", "endTime": "07:45", "duration": 45, "status": "Cancelled", "timestamp": "2026-06-26T07:05:00.000Z" }
   ]
 }
