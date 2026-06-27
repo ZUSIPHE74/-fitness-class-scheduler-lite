@@ -1,22 +1,6 @@
 {
   "sessions": [
     {
-      "id": 1719220000000,
-      "name": "Yoga Flow",
-      "coach": "Coach Sarah",
-      "date": "2026-07-01",
-      "startTime": "08:30",
-      "endTime": "09:30",
-      "duration": 60,
-      "capacity": 15,
-      "bookings": [
-        {
-          "id": 1782569372791,
-          "name": "Melody Andi"
-        }
-      ]
-    },
-    {
       "id": 1719220000001,
       "name": "HIIT Cardio Strength",
       "coach": "Coach Mike",
@@ -153,15 +137,87 @@
       "timestamp": "2026-06-27T14:18:31.458Z",
       "user": "Melody Andi",
       "action": "Cancelled booking in class: HIIT Cardio Strength"
+    },
+    {
+      "id": 1782572555958,
+      "timestamp": "2026-06-27T15:02:35.958Z",
+      "user": "System Admin",
+      "action": "Booked class: Pilates"
+    },
+    {
+      "id": 1782572557630,
+      "timestamp": "2026-06-27T15:02:37.630Z",
+      "user": "System Admin",
+      "action": "Cancelled booking in class: Pilates"
     }
   ],
   "instructors": [
-    { "id": 1, "name": "Coach Sarah", "specialty": "Yoga", "clockedIn": false, "lastClockIn": null, "lastClockOut": null },
-    { "id": 2, "name": "Coach Mike", "specialty": "HIIT", "clockedIn": false, "lastClockIn": null, "lastClockOut": null },
-    { "id": 3, "name": "Coach Linda", "specialty": "Pilates", "clockedIn": false, "lastClockIn": null, "lastClockOut": null }
+    {
+      "id": 1,
+      "name": "Coach Sarah",
+      "specialty": "Yoga",
+      "clockedIn": false,
+      "lastClockIn": "2026-06-27T15:00:56.496Z",
+      "lastClockOut": "2026-06-27T15:01:00.237Z"
+    },
+    {
+      "id": 2,
+      "name": "Coach Mike",
+      "specialty": "HIIT",
+      "clockedIn": false,
+      "lastClockIn": null,
+      "lastClockOut": null
+    },
+    {
+      "id": 3,
+      "name": "Coach Linda",
+      "specialty": "Pilates",
+      "clockedIn": false,
+      "lastClockIn": null,
+      "lastClockOut": null
+    },
+    {
+      "id": 1782572499494,
+      "name": "Dean Micheals",
+      "specialty": "Aerobics",
+      "clockedIn": false,
+      "lastClockIn": "2026-06-27T15:01:46.357Z",
+      "lastClockOut": "2026-06-27T15:01:47.312Z"
+    }
   ],
   "sessionHistory": [
-    { "id": 101, "name": "Yoga Intro", "coach": "Coach Sarah", "date": "2026-06-25", "startTime": "08:00", "endTime": "09:00", "duration": 60, "status": "Completed", "timestamp": "2026-06-25T09:00:00.000Z" },
-    { "id": 102, "name": "Morning HIIT", "coach": "Coach Mike", "date": "2026-06-26", "startTime": "07:00", "endTime": "07:45", "duration": 45, "status": "Cancelled", "timestamp": "2026-06-26T07:05:00.000Z" }
+    {
+      "id": 101,
+      "name": "Yoga Intro",
+      "coach": "Coach Sarah",
+      "date": "2026-06-25",
+      "startTime": "08:00",
+      "endTime": "09:00",
+      "duration": 60,
+      "status": "Completed",
+      "timestamp": "2026-06-25T09:00:00.000Z"
+    },
+    {
+      "id": 102,
+      "name": "Morning HIIT",
+      "coach": "Coach Mike",
+      "date": "2026-06-26",
+      "startTime": "07:00",
+      "endTime": "07:45",
+      "duration": 45,
+      "status": "Cancelled",
+      "timestamp": "2026-06-26T07:05:00.000Z"
+    },
+    {
+      "id": 1782572515546,
+      "name": "Yoga Flow",
+      "coach": "Coach Sarah",
+      "date": "2026-07-01",
+      "startTime": "08:30",
+      "endTime": "09:30",
+      "duration": 60,
+      "status": "Completed",
+      "timestamp": "2026-06-27T15:01:55.546Z"
+    }
   ]
 }
