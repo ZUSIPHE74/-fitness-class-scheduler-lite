@@ -1,38 +1,5 @@
 {
-  "sessions": [
-    {
-      "id": 1719220000001,
-      "name": "HIIT Cardio Strength",
-      "coach": "Coach Mike",
-      "date": "2026-07-02",
-      "startTime": "17:00",
-      "endTime": "18:00",
-      "duration": 60,
-      "capacity": 20,
-      "bookings": [
-        {
-          "id": 1782566810744,
-          "name": "Regular Member"
-        }
-      ]
-    },
-    {
-      "id": 1782565042281,
-      "name": "Pilates",
-      "coach": "Coach Linda",
-      "date": "2026-06-29",
-      "startTime": "09:30",
-      "endTime": "10:30",
-      "duration": 60,
-      "capacity": 15,
-      "bookings": [
-        {
-          "id": 1782566815058,
-          "name": "Regular Member"
-        }
-      ]
-    }
-  ],
+  "sessions": [],
   "users": [
     {
       "username": "admin",
@@ -156,17 +123,17 @@
       "id": 1,
       "name": "Coach Sarah",
       "specialty": "Yoga",
-      "clockedIn": true,
+      "clockedIn": false,
       "lastClockIn": "2026-06-27T18:11:20.443Z",
-      "lastClockOut": "2026-06-27T15:01:00.237Z"
+      "lastClockOut": "2026-06-27T18:14:29.394Z"
     },
     {
       "id": 2,
       "name": "Coach Mike",
       "specialty": "HIIT",
-      "clockedIn": true,
-      "lastClockIn": "2026-06-27T18:11:23.352Z",
-      "lastClockOut": null
+      "clockedIn": false,
+      "lastClockIn": "2026-06-27T18:14:36.930Z",
+      "lastClockOut": "2026-06-27T18:14:39.907Z"
     },
     {
       "id": 3,
@@ -218,6 +185,28 @@
       "duration": 60,
       "status": "Completed",
       "timestamp": "2026-06-27T15:01:55.546Z"
+    },
+    {
+      "id": 1782584090402,
+      "name": "HIIT Cardio Strength",
+      "coach": "Coach Mike",
+      "date": "2026-07-02",
+      "startTime": "17:00",
+      "endTime": "18:00",
+      "duration": 60,
+      "status": "Completed",
+      "timestamp": "2026-06-27T18:14:50.402Z"
+    },
+    {
+      "id": 1782584101625,
+      "name": "Pilates",
+      "coach": "Coach Linda",
+      "date": "2026-06-29",
+      "startTime": "09:30",
+      "endTime": "10:30",
+      "duration": 60,
+      "status": "Cancelled",
+      "timestamp": "2026-06-27T18:15:01.625Z"
     }
   ],
   "clockingHistory": [
@@ -234,6 +223,34 @@
       "specialty": "Yoga",
       "action": "Clocked Out",
       "timestamp": "2026-06-27T12:00:00.000Z"
+    },
+    {
+      "id": 1782584069394,
+      "name": "Coach Sarah",
+      "specialty": "Yoga",
+      "action": "Clocked Out",
+      "timestamp": "2026-06-27T18:14:29.394Z"
+    },
+    {
+      "id": 1782584074580,
+      "name": "Coach Mike",
+      "specialty": "HIIT",
+      "action": "Clocked Out",
+      "timestamp": "2026-06-27T18:14:34.580Z"
+    },
+    {
+      "id": 1782584076930,
+      "name": "Coach Mike",
+      "specialty": "HIIT",
+      "action": "Clocked In",
+      "timestamp": "2026-06-27T18:14:36.930Z"
+    },
+    {
+      "id": 1782584079907,
+      "name": "Coach Mike",
+      "specialty": "HIIT",
+      "action": "Clocked Out",
+      "timestamp": "2026-06-27T18:14:39.907Z"
     }
   ]
 }
