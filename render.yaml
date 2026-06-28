@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: fitness-class-scheduler-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/index.cjs
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production

@@ -13,9 +13,17 @@
       </div>
     </div>
 
-    <!-- Offline Fallback Banner -->
-    <div v-if="offlineMode" class="offline-banner">
+    <!-- Offline Fallback Banner (Only visible locally to developer) -->
+    <div v-if="offlineMode && isLocal" class="offline-banner">
       <span>Offline Mode active (saving to LocalStorage). Start the Node.js server locally to enable database sync.</span>
+    </div>
+
+    <!-- Database Status Indicator (Visible to clients online) -->
+    <div v-if="!isLocal" class="status-badge-container">
+      <div class="db-status-badge" :class="{ offline: offlineMode }">
+        <span class="status-indicator-dot"></span>
+        <span>{{ offlineMode ? 'Database: Offline Backup Mode' : 'Database: Connected' }}</span>
+      </div>
     </div>
 
     <!-- Alert Notices (3-second auto-closing pop-up) -->
@@ -53,6 +61,19 @@
           <button @click="authTab = 'signup'" class="btn-link">Don't have an account? Sign Up</button>
           <br /><br />
           <button @click="openForgotPassword" class="btn-link">Forgot Password?</button>
+          <br /><br />
+          <button @click="showServerSettings = !showServerSettings" class="btn-link" style="opacity: 0.6; font-size: 11px;">⚙️ API Server Connection</button>
+        </div>
+
+        <!-- Connection Settings Card -->
+        <div v-if="showServerSettings" class="server-settings-box">
+          <h4 style="color: hotpink; margin-bottom: 5px;">Connection Settings</h4>
+          <p style="font-size: 11px; color: lightgray; margin-bottom: 10px;">Specify the hosted Node.js server address (e.g. Render app URL).</p>
+          <input v-model="customApiUrl" type="text" placeholder="https://my-backend.onrender.com/api" class="input-field-small" style="margin-bottom: 10px; width: 100%; border: 1px solid pink;" />
+          <div style="display: flex; gap: 5px;">
+            <button @click="saveApiUrl" class="btn-pink-small" style="font-size: 11px; flex: 1;">Save & Connect</button>
+            <button @click="resetApiUrl" class="btn-pink-small" style="font-size: 11px; background-color: gray; color: white; flex: 1;">Reset</button>
+          </div>
         </div>
       </div>
 
@@ -414,7 +435,17 @@ const DEFAULT_OFFLINE_USERS = [
 
 export default {
   data() {
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const savedApiUrl = localStorage.getItem("fitness_api_url");
+    const defaultApiUrl = isLocalHost 
+      ? "http://localhost:3001/api" 
+      : "https://fitness-class-scheduler-backend.onrender.com/api";
+
     return {
+      isLocal: isLocalHost,
+      showServerSettings: false,
+      customApiUrl: savedApiUrl || "",
+
       // Session/Role Authentication states
       token: sessionStorage.getItem("token") || null,
       role: sessionStorage.getItem("role") || null,
@@ -465,7 +496,7 @@ export default {
       alertType: "info",
       alertTimeout: null,
       offlineMode: false,
-      apiBase: "http://localhost:3001/api"
+      apiBase: savedApiUrl || defaultApiUrl
     };
   },
 
@@ -536,6 +567,30 @@ export default {
   },
 
   methods: {
+    saveApiUrl() {
+      let url = this.customApiUrl.trim();
+      if (url) {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+          url = "https://" + url;
+        }
+        if (!url.endsWith("/api") && !url.includes("/api/")) {
+          if (url.endsWith("/")) {
+            url = url + "api";
+          } else {
+            url = url + "/api";
+          }
+        }
+        localStorage.setItem("fitness_api_url", url);
+      } else {
+        localStorage.removeItem("fitness_api_url");
+      }
+      window.location.reload();
+    },
+    resetApiUrl() {
+      localStorage.removeItem("fitness_api_url");
+      window.location.reload();
+    },
+
     // Check if Express server is online; otherwise fallback to offline mode
     checkConnection() {
       fetch(this.apiBase + "/sessions")
@@ -1527,6 +1582,64 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 13px;
   margin-bottom: 20px;
   border: 2px solid white;
+}
+
+/* Server status badge styling */
+.status-badge-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 15px;
+}
+
+.db-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: black;
+  border: 1px solid green;
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  color: green;
+  font-weight: bold;
+}
+
+.db-status-badge.offline {
+  border-color: orange;
+  color: orange;
+}
+
+.db-status-badge .status-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: green;
+  display: inline-block;
+  animation: pulse-green 2s infinite;
+}
+
+.db-status-badge.offline .status-indicator-dot {
+  background-color: orange;
+  animation: pulse-orange 2s infinite;
+}
+
+.server-settings-box {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px dashed pink;
+  text-align: left;
+}
+
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(0, 128, 0, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(0, 128, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 128, 0, 0); }
+}
+
+@keyframes pulse-orange {
+  0% { box-shadow: 0 0 0 0 rgba(255, 165, 0, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(255, 165, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 165, 0, 0); }
 }
 
 /* Header */
