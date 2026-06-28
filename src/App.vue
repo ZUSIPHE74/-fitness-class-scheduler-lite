@@ -232,6 +232,14 @@
                 <p v-else class="spots-full">Class is FULL</p>
               </div>
 
+              <!-- List of Attending Trainees -->
+              <div v-if="session.bookings.length > 0" class="user-booking-attending">
+                <span class="attending-title">Attending Trainees:</span>
+                <span v-for="(booking, idx) in session.bookings" :key="booking.id" class="attending-name">
+                  {{ booking.name }}{{ idx < session.bookings.length - 1 ? ', ' : '' }}
+                </span>
+              </div>
+
               <!-- Booking Section -->
               <div v-if="isUserBooked(session)" class="booked-status-container">
                 <span class="booked-label">Class Booked</span>
@@ -255,8 +263,34 @@
 
       <!-- ADMIN VIEW (Admin role only) -->
       <div v-if="currentView === 'admin' && role === 'admin'">
-        <div class="admin-layout">
-          
+        
+        <!-- Admin Sub-navigation Tabs -->
+        <div class="admin-sub-tabs">
+          <button 
+            @click="adminSubTab = 'classes'" 
+            :class="{ active: adminSubTab === 'classes' }"
+            class="admin-sub-tab-btn"
+          >
+            Classes
+          </button>
+          <button 
+            @click="adminSubTab = 'instructors'" 
+            :class="{ active: adminSubTab === 'instructors' }"
+            class="admin-sub-tab-btn"
+          >
+            Instructors
+          </button>
+          <button 
+            @click="adminSubTab = 'history'" 
+            :class="{ active: adminSubTab === 'history' }"
+            class="admin-sub-tab-btn"
+          >
+            History & Logs
+          </button>
+        </div>
+
+        <!-- Sub-tab 1: Classes -->
+        <div v-if="adminSubTab === 'classes'" class="admin-layout">
           <!-- Add Class Form -->
           <div class="admin-card">
             <h3>Schedule New Class</h3>
@@ -313,7 +347,7 @@
                   <div v-if="session.bookings.length > 0" class="admin-trainees">
                     <span class="trainee-title">Registered Trainees:</span>
                     <span v-for="(booking, idx) in session.bookings" :key="booking.id" class="trainee-name">
-                      {{ booking.name }}{{ idx &lt; session.bookings.length - 1 ? ', ' : '' }}
+                      {{ booking.name }}{{ idx < session.bookings.length - 1 ? ', ' : '' }}
                     </span>
                   </div>
                 </div>
@@ -324,7 +358,10 @@
               </div>
             </div>
           </div>
+        </div>
 
+        <!-- Sub-tab 2: Instructors -->
+        <div v-else-if="adminSubTab === 'instructors'" class="admin-layout-single">
           <!-- Instructor Clock-In Portal -->
           <div class="admin-card">
             <h3>Instructor Clock-In Portal</h3>
@@ -355,7 +392,10 @@
               </div>
             </div>
           </div>
+        </div>
 
+        <!-- Sub-tab 3: History -->
+        <div v-else-if="adminSubTab === 'history'" class="admin-layout">
           <!-- Class Completion History -->
           <div class="admin-card">
             <h3>Class Completion History</h3>
@@ -396,8 +436,8 @@
               </div>
             </div>
           </div>
-
         </div>
+
       </div>
 
     </div>
@@ -451,6 +491,7 @@ export default {
 
       // App states
       currentView: "user",
+      adminSubTab: "classes",
       sessions: [],
       history: [], // Stores Audit history logs
       instructors: [],
@@ -1066,6 +1107,22 @@ export default {
         return;
       }
 
+      // Capacity & Duplicate validation checks beforehand
+      if (session.bookings.length >= session.capacity) {
+        this.showAlert("Class is fully booked!", "error");
+        return;
+      }
+      const isDuplicate = session.bookings.some(b => b.name.toLowerCase() === userNameToBook.toLowerCase());
+      if (isDuplicate) {
+        this.showAlert("already booked", "error");
+        return;
+      }
+
+      // Optimistic update: immediately show user as booked in list
+      const tempBookingId = Date.now();
+      const tempBookingObj = { id: tempBookingId, name: userNameToBook };
+      session.bookings.push(tempBookingObj);
+
       // Online Booking
       fetch(this.apiBase + "/sessions/" + sessionId + "/book", {
         method: "POST",
@@ -1085,6 +1142,8 @@ export default {
           this.showAlert("Success! Booked for " + userNameToBook + " in " + session.name + " class.", "success");
         })
         .catch(err => {
+          // Rollback on error
+          session.bookings = session.bookings.filter(b => b.id !== tempBookingId);
           this.showAlert(err.message, "error");
         });
     },
@@ -1115,6 +1174,12 @@ export default {
         return;
       }
 
+      const bookingObj = session.bookings.find(b => b.id === bookingId);
+      if (!bookingObj) return;
+
+      // Optimistic Update: immediately remove booking from list
+      session.bookings = session.bookings.filter(b => b.id !== bookingId);
+
       // Online Cancel
       fetch(this.apiBase + "/sessions/" + sessionId + "/cancel-booking", {
         method: "POST",
@@ -1139,6 +1204,8 @@ export default {
           this.showAlert("Booking cancelled successfully.", "info");
         })
         .catch(err => {
+          // Rollback on error
+          session.bookings.push(bookingObj);
           this.showAlert(err.message, "error");
         });
     },
@@ -1228,29 +1295,34 @@ export default {
     },
 
     completeSession(sessionId) {
+      const idx = this.sessions.findIndex(s => s.id === sessionId);
+      if (idx === -1) return;
+
+      const sessionObj = this.sessions[idx];
+
       if (this.offlineMode) {
-        const idx = this.sessions.findIndex(s => s.id === sessionId);
-        if (idx !== -1) {
-          const session = this.sessions[idx];
-          const historyItem = {
-            id: Date.now(),
-            name: session.name,
-            coach: session.coach,
-            date: session.date,
-            startTime: session.startTime,
-            endTime: session.endTime,
-            duration: session.duration,
-            status: "Completed",
-            timestamp: new Date().toISOString()
-          };
-          this.sessionHistory.push(historyItem);
-          localStorage.setItem("offline_session_history", JSON.stringify(this.sessionHistory));
-          this.sessions.splice(idx, 1);
-          this.saveOfflineSessions();
-          this.showAlert("Class marked as Completed.", "success");
-        }
+        const session = this.sessions[idx];
+        const historyItem = {
+          id: Date.now(),
+          name: session.name,
+          coach: session.coach,
+          date: session.date,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: session.duration,
+          status: "Completed",
+          timestamp: new Date().toISOString()
+        };
+        this.sessionHistory.push(historyItem);
+        localStorage.setItem("offline_session_history", JSON.stringify(this.sessionHistory));
+        this.sessions.splice(idx, 1);
+        this.saveOfflineSessions();
+        this.showAlert("Class marked as Completed.", "success");
         return;
       }
+
+      // Optimistic update: immediately remove from local sessions list
+      this.sessions.splice(idx, 1);
 
       fetch(this.apiBase + "/sessions/" + sessionId + "/complete", {
         method: "POST",
@@ -1265,36 +1337,45 @@ export default {
           this.fetchSessionHistory();
           this.showAlert("Class marked as Completed.", "success");
         })
-        .catch(err => this.showAlert(err.message, "error"));
+        .catch(err => {
+          // Rollback
+          this.sessions.splice(idx, 0, sessionObj);
+          this.showAlert(err.message, "error");
+        });
     },
 
     cancelSession(sessionId) {
       const confirmCancel = confirm("Are you sure you want to cancel this class session?");
       if (!confirmCancel) return;
 
+      const idx = this.sessions.findIndex(s => s.id === sessionId);
+      if (idx === -1) return;
+
+      const sessionObj = this.sessions[idx];
+
       if (this.offlineMode) {
-        const idx = this.sessions.findIndex(s => s.id === sessionId);
-        if (idx !== -1) {
-          const session = this.sessions[idx];
-          const historyItem = {
-            id: Date.now(),
-            name: session.name,
-            coach: session.coach,
-            date: session.date,
-            startTime: session.startTime,
-            endTime: session.endTime,
-            duration: session.duration,
-            status: "Cancelled",
-            timestamp: new Date().toISOString()
-          };
-          this.sessionHistory.push(historyItem);
-          localStorage.setItem("offline_session_history", JSON.stringify(this.sessionHistory));
-          this.sessions.splice(idx, 1);
-          this.saveOfflineSessions();
-          this.showAlert("Class marked as Cancelled.", "info");
-        }
+        const session = this.sessions[idx];
+        const historyItem = {
+          id: Date.now(),
+          name: session.name,
+          coach: session.coach,
+          date: session.date,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          duration: session.duration,
+          status: "Cancelled",
+          timestamp: new Date().toISOString()
+        };
+        this.sessionHistory.push(historyItem);
+        localStorage.setItem("offline_session_history", JSON.stringify(this.sessionHistory));
+        this.sessions.splice(idx, 1);
+        this.saveOfflineSessions();
+        this.showAlert("Class marked as Cancelled.", "info");
         return;
       }
+
+      // Optimistic update: immediately remove from local sessions list
+      this.sessions.splice(idx, 1);
 
       fetch(this.apiBase + "/sessions/" + sessionId + "/cancel-session", {
         method: "POST",
@@ -1309,7 +1390,11 @@ export default {
           this.fetchSessionHistory();
           this.showAlert("Class marked as Cancelled.", "info");
         })
-        .catch(err => this.showAlert(err.message, "error"));
+        .catch(err => {
+          // Rollback
+          this.sessions.splice(idx, 0, sessionObj);
+          this.showAlert(err.message, "error");
+        });
     },
 
     fetchInstructors() {
@@ -1388,27 +1473,34 @@ export default {
     },
 
     clockIn(instructorId) {
-      if (this.offlineMode) {
-        const inst = this.instructors.find(i => i.id === instructorId);
-        if (inst) {
-          inst.clockedIn = true;
-          inst.lastClockIn = new Date().toISOString();
-          localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
-          
-          if (!this.clockingHistory) this.clockingHistory = [];
-          this.clockingHistory.push({
-            id: Date.now(),
-            name: inst.name,
-            specialty: inst.specialty,
-            action: "Clocked In",
-            timestamp: new Date().toISOString()
-          });
-          localStorage.setItem("offline_clocking_history", JSON.stringify(this.clockingHistory));
+      const inst = this.instructors.find(i => i.id === instructorId);
+      if (!inst) return;
 
-          this.showAlert(inst.name + " clocked in.", "success");
-        }
+      const originalClockedIn = inst.clockedIn;
+      const originalLastClockIn = inst.lastClockIn;
+
+      if (this.offlineMode) {
+        inst.clockedIn = true;
+        inst.lastClockIn = new Date().toISOString();
+        localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+        
+        if (!this.clockingHistory) this.clockingHistory = [];
+        this.clockingHistory.push({
+          id: Date.now(),
+          name: inst.name,
+          specialty: inst.specialty,
+          action: "Clocked In",
+          timestamp: new Date().toISOString()
+        });
+        localStorage.setItem("offline_clocking_history", JSON.stringify(this.clockingHistory));
+
+        this.showAlert(inst.name + " clocked in.", "success");
         return;
       }
+
+      // Optimistic update: toggle clock state immediately in UI
+      inst.clockedIn = true;
+      inst.lastClockIn = new Date().toISOString();
 
       fetch(this.apiBase + "/instructors/" + instructorId + "/clock-in", {
         method: "POST",
@@ -1423,31 +1515,43 @@ export default {
           this.fetchClockingHistory();
           this.showAlert("Instructor clocked in.", "success");
         })
-        .catch(err => this.showAlert(err.message, "error"));
+        .catch(err => {
+          // Rollback on error
+          inst.clockedIn = originalClockedIn;
+          inst.lastClockIn = originalLastClockIn;
+          this.showAlert(err.message, "error");
+        });
     },
 
     clockOut(instructorId) {
+      const inst = this.instructors.find(i => i.id === instructorId);
+      if (!inst) return;
+
+      const originalClockedIn = inst.clockedIn;
+      const originalLastClockOut = inst.lastClockOut;
+
       if (this.offlineMode) {
-        const inst = this.instructors.find(i => i.id === instructorId);
-        if (inst) {
-          inst.clockedIn = false;
-          inst.lastClockOut = new Date().toISOString();
-          localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
+        inst.clockedIn = false;
+        inst.lastClockOut = new Date().toISOString();
+        localStorage.setItem("offline_instructors", JSON.stringify(this.instructors));
 
-          if (!this.clockingHistory) this.clockingHistory = [];
-          this.clockingHistory.push({
-            id: Date.now(),
-            name: inst.name,
-            specialty: inst.specialty,
-            action: "Clocked Out",
-            timestamp: new Date().toISOString()
-          });
-          localStorage.setItem("offline_clocking_history", JSON.stringify(this.clockingHistory));
+        if (!this.clockingHistory) this.clockingHistory = [];
+        this.clockingHistory.push({
+          id: Date.now(),
+          name: inst.name,
+          specialty: inst.specialty,
+          action: "Clocked Out",
+          timestamp: new Date().toISOString()
+        });
+        localStorage.setItem("offline_clocking_history", JSON.stringify(this.clockingHistory));
 
-          this.showAlert(inst.name + " clocked out.", "info");
-        }
+        this.showAlert(inst.name + " clocked out.", "info");
         return;
       }
+
+      // Optimistic update: toggle clock state immediately in UI
+      inst.clockedIn = false;
+      inst.lastClockOut = new Date().toISOString();
 
       fetch(this.apiBase + "/instructors/" + instructorId + "/clock-out", {
         method: "POST",
@@ -1462,7 +1566,12 @@ export default {
           this.fetchClockingHistory();
           this.showAlert("Instructor clocked out.", "info");
         })
-        .catch(err => this.showAlert(err.message, "error"));
+        .catch(err => {
+          // Rollback on error
+          inst.clockedIn = originalClockedIn;
+          inst.lastClockOut = originalLastClockOut;
+          this.showAlert(err.message, "error");
+        });
     },
 
     fetchSessionHistory() {
@@ -1918,6 +2027,62 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+}
+
+.admin-layout-single {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Admin Sub-tabs styles */
+.admin-sub-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 25px;
+  border-bottom: 2px solid pink;
+  padding-bottom: 10px;
+}
+
+.admin-sub-tab-btn {
+  background-color: black;
+  color: pink;
+  border: 2px solid pink;
+  padding: 8px 20px;
+  margin: 0 5px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+  transition: 0.2s;
+}
+
+.admin-sub-tab-btn:hover {
+  background-color: hotpink;
+  color: black;
+}
+
+.admin-sub-tab-btn.active {
+  background-color: hotpink;
+  color: black;
+  border-color: hotpink;
+}
+
+/* User booking attending list styling */
+.user-booking-attending {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed pink;
+  font-size: 13px;
+  text-align: left;
+}
+
+.attending-title {
+  color: hotpink;
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.attending-name {
+  color: lightgray;
 }
 
 .admin-card {
