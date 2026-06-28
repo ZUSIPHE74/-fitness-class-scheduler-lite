@@ -417,7 +417,7 @@ export default {
     const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const defaultApiUrl = isLocalHost 
       ? "http://localhost:3001/api" 
-      : "https://fitness-class-scheduler-backend.onrender.com/api";
+      : "https://fitness-class-scheduler-lite.onrender.com/api";
 
     return {
       isLocal: isLocalHost,
