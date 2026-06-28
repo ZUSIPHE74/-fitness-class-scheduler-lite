@@ -490,7 +490,7 @@ export default {
       recoveredPassword: null,
 
       // App states
-      currentView: "user",
+      currentView: sessionStorage.getItem("role") === "admin" ? "admin" : "user",
       adminSubTab: "classes",
       sessions: [],
       history: [], // Stores Audit history logs
