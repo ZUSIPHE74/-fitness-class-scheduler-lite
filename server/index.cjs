@@ -445,6 +445,10 @@ app.post('/api/instructors/:id/clock-in', verifyAdmin, (req, res) => {
     return res.status(404).json({ error: 'Instructor not found' });
   }
 
+  if (instructor.clockedIn) {
+    return res.status(400).json({ error: 'Instructor is already clocked in' });
+  }
+
   instructor.clockedIn = true;
   instructor.lastClockIn = new Date().toISOString();
 
@@ -471,6 +475,10 @@ app.post('/api/instructors/:id/clock-out', verifyAdmin, (req, res) => {
 
   if (!instructor) {
     return res.status(404).json({ error: 'Instructor not found' });
+  }
+
+  if (!instructor.clockedIn) {
+    return res.status(400).json({ error: 'Instructor is already clocked out' });
   }
 
   instructor.clockedIn = false;

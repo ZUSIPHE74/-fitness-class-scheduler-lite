@@ -1476,6 +1476,11 @@ export default {
       const inst = this.instructors.find(i => i.id === instructorId);
       if (!inst) return;
 
+      if (inst.clockedIn) {
+        this.showAlert("Instructor is already clocked in.", "error");
+        return;
+      }
+
       const originalClockedIn = inst.clockedIn;
       const originalLastClockIn = inst.lastClockIn;
 
@@ -1526,6 +1531,11 @@ export default {
     clockOut(instructorId) {
       const inst = this.instructors.find(i => i.id === instructorId);
       if (!inst) return;
+
+      if (!inst.clockedIn) {
+        this.showAlert("Instructor is already clocked out.", "error");
+        return;
+      }
 
       const originalClockedIn = inst.clockedIn;
       const originalLastClockOut = inst.lastClockOut;
