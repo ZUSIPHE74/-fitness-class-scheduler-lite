@@ -286,7 +286,7 @@
             </div>
             <div class="form-group">
               <label>Duration (minutes)</label>
-              <input v-model="newSession.duration" type="number" placeholder="e.g. 60" class="input-field" />
+              <input v-model="newSession.duration" type="number" placeholder="Calculated automatically" class="input-field" readonly />
             </div>
             <div class="form-group">
               <label>Capacity</label>
@@ -538,11 +538,35 @@ export default {
     }
   },
 
+  watch: {
+    'newSession.startTime': function() { this.calculateDuration(); },
+    'newSession.endTime': function() { this.calculateDuration(); }
+  },
+
   mounted() {
     this.checkConnection();
   },
 
   methods: {
+    calculateDuration() {
+      const start = this.newSession.startTime;
+      const end = this.newSession.endTime;
+      if (start && end) {
+        const [startH, startM] = start.split(':').map(Number);
+        const [endH, endM] = end.split(':').map(Number);
+        
+        let startMin = startH * 60 + startM;
+        let endMin = endH * 60 + endM;
+        
+        let diff = endMin - startMin;
+        if (diff < 0) {
+          diff += 1440; // Past midnight adjustment
+        }
+        this.newSession.duration = diff;
+      } else {
+        this.newSession.duration = 60; // default standard duration
+      }
+    },
     // Check if Express server is online; otherwise fallback to offline mode
     checkConnection() {
       fetch(this.apiBase + "/sessions")
